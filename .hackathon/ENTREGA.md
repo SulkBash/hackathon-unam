@@ -1,6 +1,6 @@
 # Entrega: hackathon-unam
 
-- Generado: 2026-11-20 12:52 (windows x64)
+- Generado: 2026-11-20 13:05 (windows x64)
 - Stack verificado: Python 3.12.12, Node 22.23.1, uv 0.11.19
 - Dashboard compilado: sí (dashboard/dist)
 - Backend: se importa sin errores
