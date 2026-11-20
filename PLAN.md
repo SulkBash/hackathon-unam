@@ -13,7 +13,16 @@
 | Blitz | **"El blitz depende del down"**: it helps on 1st/2nd down and short yardage, but stops paying on 3rd & long, which is exactly where teams use it most (30% vs 22% on early downs). **Do NOT ship "3rd & long blitz kill shot".** Show ADJUSTED numbers (same exact yards-to-go), never the raw 36.8 vs 26.6. Confidence 🟡. | Blitz vs non-blitz success at the same exact yards-to-go: 1st/2nd **−2.4 pts**, 3rd/4th 1–3 **−5.4**, 3rd/4th 4–6 **−1.6**, 3rd/4th 7+ **+4.2** conversions (n=391, z≈1.7). Sacks on 3rd & 7+: 15.2% vs 9.1%. The raw +10 gap is inflated because blitzes cluster at 3rd & 7–9, where converting is easier. |
 | 5v4 "2 double-teams → 100% free rusher" | **Remove everywhere** (chart, KPI card, hints, showcase play, `category=double_team_trap`). | Arithmetic tautology (0 of 781 plays could be otherwise); 53% of those plays are stunts mis-bookkept by PFF first-target coding. |
 | Trench Gravity Score / "invisible stars" | **Remove** (score, Lotulelei/Zimmer/Vea claims). Replace with a **Get-Off Score** leaderboard. | Teammate-pressure-when-doubled has −0.12 week 1–4 vs 5–8 correlation (noise); Buffalo pressured 41% even with Lotulelei off the field. |
-| Rollout right "1.1% sacks, 6.4×" | Reframe inside Play Action: "designed rollouts (both sides) 2.5% sacks vs 6.7%; 84% are play action." | Rollout left = 5.4% sacks; the right side was cherry-picked. |
+| Rollout right "1.1% sacks, 6.4×" | Reframe inside Play Action: "designed rollouts (both sides) 2.5% sacks vs 6.7%; 84% are play action." | Rollout left = 5.4% sacks; the right side was cherry-picked. Rollout helps beyond PA: PA + designed rollout 2.7% sacks (10 of 365) vs PA without rollout 7.3% (PA traditional 7.8%). |
+| **AUDIT 11:55** Play action success "47% → 54%" | **Wrong (down/distance artifact). Reframe PA as a big-play weapon.** Show actual vs expected at the same down × exact yardsToGo: éxito 54.1 vs 54.0 (no gain), jugadas grandes **13.6% vs 7.7%** (1.8×), presión 37.8 vs 30.5, sacks 6.5 vs 4.2. Rushers frozen **0.12 s** (within player + down × ytg; raw 0.14), but the QB spends **+0.8 s** on the fake (1st & 10 median ttt 3.4 vs 2.6). Never show raw 47→54 or "misma presión". | PA is 40% of 1st-down passes vs 4% on 3rd down, and 1st-down "success" is easier (40% of ytg). Re-verified with 3 methods (stratified, OLS with stratum FE, bootstrap): success −0.2 (se 1.4), big +6.0 (z 6.7), pressure +7.1 (z 5.4), sacks +2.3 (z 3.5). Raw 1st & 10 alone agrees: success 55.3 vs 55.9, big 7.9 vs 14.1. Get-off +0.116 s (player-clustered z 34). |
+| **AUDIT** "Precipicio" (cliff) wording | Keep the 3.5 s threshold and its numbers, but **do not call it a cliff/precipicio**. Use **"Zona de peligro"** / "después de 3.5 s". Copy: "el riesgo de sack se multiplica ~2.5× cada medio segundo; a los 3.5 s pasa de 1 en 20 a 1 en 8". | No break in success: hinge at 3.5 s vs straight line F=1.5 (n.s.); success falls steadily ~7 pts per second (−6.5 before, −8.6 after). Sacks grow ×2.6, ×3.3, ×2.5, ×2.5 per 0.5 s step: exponential, not a jump. |
+| **AUDIT** Per-QB "reloj personal" (Mayfield 57→19 vs Prescott 55→57) | **Remove as a QB trait** (move to "Lo que descartamos"). Show instead the QB's **late_share** (% of dropbacks > 3.5 s, stable) and **ttt_median**, next to the league drop (~53% → ~36% success). | Per-QB drop split-half corr **−0.13**; simulating every QB with the same drop reproduces the observed spread (p=0.22): QB differences are indistinguishable from noise. late_share split-half **0.64**, ttt_median **0.50**: holding the ball IS a trait. League (down>0): success 52.8% (≤3.5 s) → 35.9% (>3.5 s). |
+| **AUDIT** "Tackle 40–80 lb heavier loses 16.4% vs 9.6%" | **Remove** `speed_vs_size` (move to "Lo que descartamos"). | Confounded by rusher type: the "≤0 lb" bin is 17% edges, "40–80" is 97% edges. Within the same rusher, a heavier tackle loses LESS (−0.9 pts per +10 lb, rusher-clustered z −2.7). The pattern is about WHO rushes (light = edge = better pass rusher), not the tackle's weight. |
+| **AUDIT** 3rd & 7+ recommendation | Show the per-plan numbers but **label them "muestra chica, no concluyente"**: vs 4 sin stunt (29.4% conv, n=540) at the same exact ytg: 4 con stunt −4.8 pts (se 3.1, z −1.5, n=368, sacks 12.0 vs 7.8); Blitz sin stunt −0.8 (se 4.1, n=212); Blitz con stunt +4.6 (se 4.4, n=179). "4 con stunt" is the best point estimate there, and it matches the league-wide stunt result (−2.4, CI −4.8 to −0.1), but alone it is not significant. Never write "baja las conversiones 4.8 pts" as a fact. | Blitz flip early vs 3rd & 7+: −2.3 vs +4.5, diff 6.7, **z≈2.0 (p≈0.05, borderline)**. Re-verified with correct stratified SEs, OLS and bootstrap (first-pass SEs were too small). |
+| **AUDIT** Two-point tries | Exclude `down == 0` (35 two-point attempts) from every success/conversion/situational calc. Keep them in the headline play count. | yardsToGo is 0 there, so success = 100% by construction. |
+| **AUDIT** Team-level gameplan fields | Remove the per-team "3rd & long blitz conversion" (median **12** plays per defense, min 2). Team get-off vs league: show only as "Tendencia" (split-half 0.36) or cut (already cut-list #5). Team PA rate is descriptive only (split-half 0.20). | Evidence standard #3 and #5. |
+| **AUDIT** RB hint "mándalo a la ruta o usa chip" | **Drop "o usa chip"** and do not claim the route is better: say sending him out "no empeora". On blitz plays, RB in a route vs RB blocking at the same exact ytg: éxito +3.4 (se 2.3, n.s.), sacks −1.8 (se 1.2, n.s.). Chip + route on blitz: n=81, éxito 43.2%. The robust fact is only the weak link: PU loses 26% vs 13.9%. | |
+| **AUDIT** Get-off robustness (README "Cómo lo medimos") | Headline holds 🟢. Effect per 0.1 s faster: 0.87 (player FE), 0.70 (+ down × ytg), 1.23 (+ ttt band), 1.08 (+ PA), 1.07 (+ blitz/stunt), 0.89 (vs teammates on the same snap); every spec z ≥ 7.4 with SEs clustered by player (z 10 clustered by game). Edge 1.6 (z 10.5) vs Interior 0.5 (z 3.7). Hero copy: "~0.9 pts de presión (≈8% relativo)", never a bare "8% más". | Controls for situation, time to throw, PA, blitz/stunt, and teammates. |
 | Completion % | Use **attempts** as the denominator (C / (C+I+IN)). Clean 67.8% → pressured 46.6%. | v1 counted sacks/scrambles as incompletions (65.1 → 35.1). |
 | Block-type labels | Fix to the data dictionary: PU = Recogida del RB (backfield pickup), UP = Jalón (pull), CL = Segundo nivel, SR = Set & release, PT = Post, SW = Switch (stunt), CH = Chip, BH = Ayuda desde el backfield, PA = Protección de play action, PP = Protección estándar, PR = Pocket móvil, NB = Sin bloqueo. | v1 labels contradict README_DATA.md. |
 | Team-level stunt hint ("stunt MIN, +12.9") | Remove. Use the league-level stunt advice instead. | Team stunt vulnerability correlates 0.15 between halves of the season. |
@@ -40,6 +49,7 @@
 - `backend/pipeline/build_tracking_features.py` (reproducible, run with `python -m backend.pipeline.build_tracking_features`).
 - Output: `backend/precomputed/tracking_plays.csv` (gameId, playId, ttt, endEvent) and `backend/precomputed/tracking_rushers.csv` (gameId, playId, nflId, getoff, s05, strain, dmin, t2).
 - **Commit these CSVs.** Do not regenerate during the build unless they are missing.
+- **VERIFIED (Stage 1 done):** both CSVs are committed; a fresh run of the script reproduces them byte-identical. 8,533 of 8,557 plays (122 games) have tracking features; 36,263 rusher snaps = all PFF Pass Rush rows on those plays; getoff null 0.1%, t2 null 89% (expected: most rushers never get within 2 yd). Every Stage 2 reference value reproduces from these files (headline, 7 cliff buckets, get-off by position, within-player table, stability 0.793, PA get-off/ttt, QB clocks). See the get-off POPULATIONS note in 2.2.
 
 ## Stage 0: Safety net (owner: Agent A, 11:35, 2 min)
 ```
@@ -68,19 +78,26 @@ Merge `ttt` into `self.pm`. Build `self.rush_trk` = trk_rush ⨝ PFF rusher rows
     { "bucket": "≤2.0 s", "plays": 1210, "pressure": 11.9, "sack": 0.2, "success": 57.5, "big": 2.7 } // ...7 rows
   ],
   "getoff": {
+    // POPULATIONS (verified in Stage 1): "DL rows" = officialPosition in {DE,OLB,DT,NT}, getoff not null and < 2 (33,464 rows).
+    // within_player uses ONLY players with >=100 DL rows; pp_per_tenth, base_rate and by_situation use ALL DL rows
+    // (on the >=100 subset they come out 1.07 / 12.0 / 16.9-13.3 / 12.8-9.6, which fails QA on "Resto").
     "within_player": [ // players with >=100 snaps; delta = round(getoff - player_median, 1) clipped to ±0.3
       { "delta": -0.3, "label": "0.3 s antes", "snaps": 216, "pressure": 21.3 } // ...7 rows (-0.3..+0.3)
     ],
-    "pp_per_tenth": 0.9,  // fixed-effects slope: demean pressure & getoff by player, polyfit, *0.1, sign flipped
-    "base_rate": 11.0,
+    "pp_per_tenth": 0.9,  // ALL DL rows: demean pressure & getoff by player MEAN, polyfit, *0.1*100, sign flipped (verified 0.88)
+    "base_rate": 11.0,    // ALL DL rows: mean pressure per rusher snap (verified 11.0)
     "by_situation": [ { "situation": "3er down y 7+", "faster": 17.0, "slower": 13.9 }, { "situation": "Resto", "faster": 11.3, "slower": 8.7 } ],
+                          // ALL DL rows; faster = delta<0, slower = delta>0 (delta vs player median). Verified 17.2/13.6 and 11.6/8.8.
     "stability": 0.79     // corr of player mean getoff weeks 1-4 vs 5-8 (players >=60 snaps each half)
   },
-  "play_action": { "pa_rate": 23.8,
-    "getoff_no_pa": 0.75, "getoff_pa": 0.89, "ttt_no_pa": 2.7, "ttt_pa": 3.3,
-    "pressure_no_pa": 36.9, "pressure_pa": 37.8, "success_no_pa": 47.0, "success_pa": 54.4,
-    "big_no_pa": 7.9, "big_pa": 13.5,
-    "rollout_sack": 2.5, "pocket_sack": 6.7, "rollout_pa_share": 84 },
+  "play_action": { "pa_rate": 23.8,   // AUDIT: all comparisons below are PA actual vs non-PA EXPECTED at the same down x exact yardsToGo (down>0)
+    "getoff_no_pa": 0.75, "getoff_pa": 0.89, "getoff_delta_adj": 0.12,  // adj = within player + down x ytg fixed effects
+    "ttt_no_pa": 2.7, "ttt_pa": 3.3,
+    "success_pa": 54.1, "success_expected": 54.0,    // NO success gain: never show the raw 47.0 -> 54.4
+    "big_pa": 13.6, "big_expected": 7.7,             // the real PA payoff (1.8x)
+    "pressure_pa": 37.8, "pressure_expected": 30.5,  // the cost: QB spends +0.8 s on the fake
+    "sack_pa": 6.5, "sack_expected": 4.2,
+    "rollout_sack": 2.5, "pocket_sack": 6.7, "rollout_pa_share": 84, "pa_rollout_sack": 2.7, "pa_rollout_n": 365, "pa_no_rollout_sack": 7.3 },
   "blitz": {
     "overall":   [ { "label": "Rush 3–4", "plays": 6450, "pressure": 33.8, "success": 48.8 }, { "label": "Blitz 5+", "plays": 2107, "pressure": 47.3, "success": 48.5 } ],
     "by_situation": [ // blitz minus non-blitz, compared at the SAME exact yardsToGo within each situation (points; negative = better for defense)
@@ -88,7 +105,13 @@ Merge `ttt` into `self.pm`. Build `self.rush_trk` = trk_rush ⨝ PFF rusher rows
       { "situation": "3ro/4to y 1-3", "adj_delta": -5.4 },
       { "situation": "3ro/4to y 4-6", "adj_delta": -1.6 },
       { "situation": "3ro/4to y 7+", "blitz_share": 30.4, "adj_delta": 4.2, "metric": "conversion" } ],
-    "third_long_sacks": { "rush4": 9.1, "blitz": 15.2 }
+    "third_long_sacks": { "rush4": 9.1, "blitz": 15.2 },  // AUDIT: 9.1/15.2 and blitz_share 30.4 are 3rd down ONLY; use down>=3 & ytg>=7
+                                                          // like by_situation -> 9.5 / 15.1 and 29.9 (within ±1 tolerance)
+    "flip": { "early": -2.3, "third_long": 4.5, "diff": 6.7, "z": 2.0 },  // AUDIT: borderline (p≈0.05); each cell alone is n.s.
+    "third_long_plans": { "base": { "plan": "4 sin stunt", "plays": 540, "conversion": 29.4 },  // AUDIT: 3rd/4th & 7+, same exact ytg; NONE significant alone (se 3.1–4.4): UI label "muestra chica"
+      "vs_base": [ { "plan": "4 con stunt", "plays": 368, "adj_delta": -4.8, "sack": 12.0 },
+                   { "plan": "Blitz sin stunt", "plays": 212, "adj_delta": -0.8, "sack": 13.7 },
+                   { "plan": "Blitz con stunt", "plays": 179, "adj_delta": 4.6, "sack": 16.8 } ] }
   },
   "rush_plans": [ // plan = (rushers<=4 | >=5) x (stunt | no stunt); adj_delta = success minus expected success of
                   // "4 sin stunt" in same down x ytg stratum (ytg bins [0,3,6,10,99]), in points
@@ -103,17 +126,14 @@ Merge `ttt` into `self.pm`. Build `self.rush_trk` = trk_rush ⨝ PFF rusher rows
     { "label": "Línea ofensiva, protección estándar (PP)", "reps": 24689, "lost": 13.9 },
     { "label": "Corredor recogiendo blitz (PU)", "reps": 799, "lost": 26.0 },
     { "label": "Corredor ayudando (BH)", "reps": 386, "lost": 6.5 }
-  ],
-  "speed_vs_size": [ // tackles only, PP/SW blocks, weight(OL) - weight(rusher)
-    { "label": "Tackle igual o más ligero", "reps": 658, "lost": 9.6 },
-    { "label": "Tackle 40–80 lb más pesado", "reps": 8001, "lost": 16.4 }
   ]
+  // AUDIT: "speed_vs_size" REMOVED (confounded by rusher type; reverses within the same rusher). Do not build it.
 }
 ```
 Numbers shown are the verified reference values: **QA tolerance ±1 point.** Copy in the UI must read from the API, never hard-coded.
 
 ### 2.3 New endpoint `GET /api/qb-clocks`
-Per QB with ≥150 dropbacks: `{ name, team, plays, ttt_median, late_share (ttt>3.5, %), success_early, success_late, late_plays, drop (early - late), reliable: late_plays >= 50 }`, sorted by `drop` desc. Reference: Mayfield 57.0 → 19.4; Burrow 56.0 → 27.1; Brady 57.4 → 30.2; Prescott 54.8 → 57.1.
+**AUDIT: the per-QB drop is noise (split-half −0.13), so it is NOT the ranking.** Response: `{ league: { late_share: 25.5, success_early: 52.8, success_late: 35.9, drop: 16.9 }, qbs: [ { name, team, plays, ttt_median, late_share (ttt>3.5, %) } ] }` for QBs with ≥150 dropbacks, sorted by `late_share` desc (stable trait: split-half 0.64; ttt_median 0.50). Per-QB early/late success may be returned for the film room tooltip only, never ranked or used in hints.
 
 ### 2.4 Update `GET /api/players`
 - **Replace** `defenders` (gravity) with `getoff_leaders`: DL (DE/OLB/DT/NT) with ≥150 rush snaps: `{ name, team, position, group: "Edge"|"Interior", snaps, getoff_avg, strain_avg, pressure_rate, sacks, getoff_score }` where Edge = DE·OLB, Interior = DT·NT, and `getoff_score` = 0–100 min-max of `-getoff_avg` **computed within the player's group** (never across groups). Reference top pressure rates: Garrett 24.0%, Crosby 22.5%, Judon 22.3%, Hendrickson 20.8%, Gary 20.5%.
@@ -121,12 +141,12 @@ Per QB with ≥150 dropbacks: `{ name, team, plays, ttt_median, late_share (ttt>
 - Fix every completion % to the attempts denominator.
 
 ### 2.5 Update `GET /api/team/{team}` (gameplan generator)
-Add: `qb_clock` (team's main QB row from 2.3), `def_getoff_avg` vs league average, `pa_rate` and PA success gain, `third_long` blitz conversion for that defense. **Remove**: double-team trap hint, team stunt-jump hint, "save blitzes for 3rd & long". Spanish hint templates (fill from data):
+Add: `qb_clock` (team's main QB: `late_share`, `ttt_median` + league values from 2.3), `def_getoff_avg` vs league average (label "Tendencia", split-half only 0.36), `pa_rate` (descriptive). **Remove**: double-team trap hint, team stunt-jump hint, "save blitzes for 3rd & long", per-team 3rd & long blitz conversion (n≈12, AUDIT). Spanish hint templates (fill from data):
 - `"Ataca el carril {lane} ({starter}): permitió presión en {rate}% de {n} bloqueos ({sacks} sacks). Tendencia de 8 semanas."`
-- `"Su QB {qb} pierde {drop} puntos de éxito si sostiene el balón más de 3.5 s: cubre largo, rush de 4 con stunt y oblígalo a esperar."` (if `drop >= 15` and reliable) else `"Su QB {qb} no se cae después de 3.5 s ({early}% → {late}%): no apuestes a la cobertura larga, gana con get-off."`
-- `"En 3er down y 7+, rush de 4 con stunt: ahí el blitz da más sacks pero permite ~4 puntos más de conversiones (misma distancia). Guarda el blitz para 1ro/2do y 3ro corto."`
-- Offense side: `"Usa más play action: lo usan en {pa_rate}% de sus pases; en la liga congela a cada rusher 0.14 s y sube el éxito de 47% a 54%."`
-- `"No dejes al corredor recogiendo blitz (pierde 26% de sus duelos): mándalo a la ruta o usa chip."`
+- `"Su QB {qb} sostiene el balón más de 3.5 s en {late_share}% de sus pases (liga: {league_late}%). Pasado ese punto los QB de la liga pierden ~{league_drop} pts de éxito: cubre largo, rush de 4 con stunt y oblígalo a esperar."` (if `late_share >= league_late`) else `"Su QB {qb} suelta rápido (mediana {ttt_median} s; solo {late_share}% pasa de 3.5 s): no apuestes a la cobertura larga, gana con get-off."`
+- `"En 3er down y 7+, el blitz da más sacks pero no baja las conversiones (a la misma distancia permite ~4 pts más). Ahí, el rush de 4 con stunt fue la mejor opción ({stunt_delta} pts, muestra chica). Guarda el blitz para 1ro/2do y 3ro corto."`
+- Offense side: `"Play action para la jugada grande: en la liga, a la misma down y distancia, da {big_pa}% de jugadas de 20+ yardas vs {big_expected}% (mismo éxito). Cuesta presión; con rollout los sacks bajan a {pa_rollout_sack}%. Lo usan en {pa_rate}% de sus pases."`
+- `"No dejes al corredor solo recogiendo blitz: pierde 26% de sus duelos (la línea, 13.9%). Mandarlo a la ruta contra blitz no empeora el resultado."`
 
 ### 2.6 Film room additions in `get_play_tracking`
 - Add `play.ttt` and per-rusher `getoff` (from `trk_rush`, by gameId/playId/nflId) into each `roster` entry.
@@ -152,21 +172,21 @@ Brand: **"LA GUERRA DE LOS 3.5 SEGUNDOS"**; subtitle: *"Cómo ganar (o robar) d�
 Tabs: `1. El Reloj` · `2. Plan de Juego (32 equipos)` · `3. Laboratorio de Jugadores` · `4. Sala de Video 10 Hz` · `Cómo leer esto`.
 
 ### 3.2 Tab 1 "El Reloj" (rewrite `ExecutivePlaybook.tsx`)
-- **Hero sentence:** *"Cada pase es una carrera entre dos relojes: el del quarterback y el de los pass rushers. Después de 3.5 segundos el sack pasa de 5% a 13%, y a 23% después de 4. La carrera se gana por décimas: un rusher que arranca 0.1 s antes que su propio promedio genera ~8% más presión, y el play action le roba 0.14 s a cada rusher."* (numbers from API)
-- 4 KPI cards: **El precipicio** (sack % ≤3.5 s vs >4 s) · **Get-off** (21% vs 7% within-player) · **Play action** (+0.14 s, éxito 47→54%) · **El blitz depende del down** (ayuda en 1ro/2do: −2.4 pts de éxito rival; en 3ro y 7+ da más sacks, 9.1→15.2%, pero +4 pts de conversiones a la misma distancia, y es justo donde más se usa: 30% vs 22%).
-- Charts (Recharts): (a) **Cliff**: ComposedChart, x = bucket, bars = sack %, lines = success % and big %, `ReferenceLine` at the 3.5 s bucket labeled "3.5 s". (b) **Get-off within player**: bar chart delta → pressure, caption "Mismo jugador, misma situación: solo cambia su arranque". (c) **Rush plans**: bars of `adj_delta`, axis label from the contract comment ("negativo = mejor para la defensa"), caption "Ajustado por down y distancia". (d) **Blitz por situación**: bars of `blitz.by_situation[].adj_delta` (same axis convention), with the 3ro y 7+ bar highlighted and the label "Aquí se invierte". (e) **Play action**: 2-column comparison (get-off, ttt, pressure, success, big). (f) **Protection weak links** + speed vs size.
+- **Hero sentence:** *"Cada pase es una carrera entre dos relojes: el del quarterback y el de los pass rushers. Cada medio segundo que el QB sostiene el balón, el riesgo de sack se multiplica ~2.5×: de 5% a 13% después de 3.5 segundos, y a 23% después de 4. La carrera se gana por décimas: un rusher que arranca 0.1 s antes que su propio promedio suma ~0.9 puntos de presión (≈8% relativo), y el play action congela 0.12 s a cada rusher."* (numbers from API)
+- 4 KPI cards: **Zona de peligro: después de 3.5 s** (sack % ≤3.5 s vs >4 s; NOT "precipicio", see AUDIT) · **Get-off** (21% vs 7% within-player) · **Play action** (congela 0.12 s; mismo éxito, pero 1.8× jugadas grandes: 7.7% → 13.6% a la misma down y distancia) · **El blitz depende del down** (ayuda en 1ro/2do: −2.3 pts de éxito rival; en 3ro y 7+ da más sacks, 9.1→15.2%, pero +4.5 pts de conversiones a la misma distancia, y es justo donde más se usa: 30% vs 22%. Ahí, el rush de 4 con stunt fue la mejor opción: −4.8 pts, muestra chica).
+- Charts (Recharts): (a) **Zona de peligro**: ComposedChart, x = bucket, bars = sack %, lines = success % and big %, `ReferenceLine` at the 3.5 s bucket labeled "3.5 s". (b) **Get-off within player**: bar chart delta → pressure, caption "Mismo jugador, misma situación: solo cambia su arranque". (c) **Rush plans**: bars of `adj_delta`, axis label from the contract comment ("negativo = mejor para la defensa"), caption "Ajustado por down y distancia". (d) **Blitz por situación**: bars of `blitz.by_situation[].adj_delta` (same axis convention), with the 3ro y 7+ bar highlighted and the label "Aquí se invierte"; add a small inset/table from `blitz.third_long_plans` ("En 3ro y 7+: 4 con stunt −4.8 · blitz −0.8 · blitz con stunt +4.6 vs rush de 4 normal"). (e) **Play action**: actual vs expected at the same down × distance (éxito, jugadas grandes, presión, sacks) + get-off delta; caption "Comparado contra pases sin play action en el mismo down y distancia". (f) **Protection weak links** (no speed vs size: AUDIT removed).
 - Delete the double-team chart and cards. Keep the 32-team scatter but recolor/relabel in Spanish (x: % blitz, y: presión con 4).
-- Footer box **"Lo que descartamos"**: "Fatiga del rusher (sesgo de selección), ruido del estadio (efecto mínimo), 'doble marca deja un rusher libre' (artefacto aritmético), 'presión fantasma' (rushers cerca sin presión: desaparece al comparar el mismo tiempo de lanzamiento)." Judges love this.
+- Footer box **"Lo que descartamos"**: "Fatiga del rusher (sesgo de selección), ruido del estadio (efecto mínimo), 'doble marca deja un rusher libre' (artefacto aritmético), 'presión fantasma' (rushers cerca sin presión: desaparece al comparar el mismo tiempo de lanzamiento), 'el play action sube el éxito' (47→54% crudo; a la misma down y distancia 54.0 vs 54.1), 'cada QB tiene su propio reloj' (la caída después de 3.5 s por QB no se repite entre mitades: −0.13), 'tackles pesados pierden contra rushers ligeros' (confusión por tipo de rusher; con el mismo rusher se invierte)." Judges love this.
 
 ### 3.3 Tab 2 Plan de Juego (`TeamGameplanView.tsx`)
-Keep the OL heatmap (add `n` + caption). Add a **"Reloj del QB rival"** card (early vs late success, red badge if drop ≥ 15 and reliable, gray "muestra chica" otherwise), team get-off vs league, PA usage. Render the Spanish hints from the API. Keep the Nova brief button (label "Resumen del coordinador (IA opcional)").
+Keep the OL heatmap (add `n` + caption). Add a **"Reloj del QB rival"** card (AUDIT: `late_share` and `ttt_median` vs league; red badge if `late_share >= league` "Sostiene el balón", green "Suelta rápido" otherwise; NO per-QB early/late success), team get-off vs league (label "Tendencia"), PA usage. Render the Spanish hints from the API. Keep the Nova brief button (label "Resumen del coordinador (IA opcional)").
 
 ### 3.4 Tab 3 Laboratorio de Jugadores (`PlayersLabView.tsx`)
-Replace gravity UI with: **`Todos / Edge / Interior` filter pills** (same style as the OL position filter) driving a **Get-Off scatter** (x = get-off avg, y = pressure %, label top 8 names, color by group) + Get-Off leaderboard table with a "Strain (tipo STRAIN)" column; **QB clocks** table/bar (early vs late success, gray out `reliable=false`); keep the OL leaderboard in Spanish.
+Replace gravity UI with: **`Todos / Edge / Interior` filter pills** (same style as the OL position filter) driving a **Get-Off scatter** (x = get-off avg, y = pressure %, label top 8 names, color by group) + Get-Off leaderboard table with a "Strain (tipo STRAIN)" column; **QB clocks** bar (AUDIT: `late_share` per QB with a league reference line, plus `ttt_median`; caption "Cuánto sostiene el balón cada QB: se repite entre mitades de temporada (0.64)"); keep the OL leaderboard in Spanish.
 
 ### 3.5 Tab 4 Sala de Video (`TrenchFilmRoom.tsx`)
 - **Pocket clock** overlay: big `t` since snap, green < 2.5 s, amber 2.5–3.5, red > 3.5, pulse at 3.5.
-- Telemetry chart: `ReferenceLine x={3.5}` labeled "Precipicio" **and** `ReferenceLine x={play.ttt}` labeled "Lanzamiento" (or "Sack"/"Scramble" from `endEvent`). Gray out frames after `ttt`; the threat label stops updating there (backend caps metrics at `t <= ttt`, see locked decisions).
+- Telemetry chart: `ReferenceLine x={3.5}` labeled "3.5 s" (not "Precipicio", AUDIT) **and** `ReferenceLine x={play.ttt}` labeled "Lanzamiento" (or "Sack"/"Scramble" from `endEvent`). Gray out frames after `ttt`; the threat label stops updating there (backend caps metrics at `t <= ttt`, see locked decisions).
 - Roster panel: show each rusher's get-off for this play.
 - Remove the free-rusher "over-allocation" visuals/labels (keep double-team lines only as neutral "bloqueo doble" if trivial; otherwise remove). Spanish labels.
 
@@ -181,7 +201,7 @@ Glossary, one line each: **Pase / dropback**, **Pocket** (la bolsa de protecció
 ## Stage 4: Integration QA (owner: Agent A + B, 12:05–12:20)
 1. Backend + `npm run dev`; open `http://localhost:5173` (not 127.0.0.1).
 2. Click every tab, 3 teams (CLE, BUF, MIN), 3 showcase plays. No console errors, no blank charts, no English left in headings.
-3. Spot-check 6 numbers against Stage 2 references (±1 point).
+3. Spot-check 6 numbers against Stage 2 references (±1 point). Must include: PA big 13.6 vs 7.7, 3rd & 7+ "4 con stunt" −4.8, league late_share 25.5. Grep the UI for "precipicio", "47", "0.14 s", "speed", "reliable": none should remain.
 4. Kill `.env` (rename) → Nova button still returns the deterministic Spanish brief.
 5. `.\.hackathon\setup.cmd --check` → `TODO OK`.
 6. **12:15 go/no-go.** If broken → fallback rule from Stage 0.
@@ -191,9 +211,9 @@ Glossary, one line each: **Pase / dropback**, **Pocket** (la bolsa de protecció
 - README in Spanish, ≤ 1 screen before the first image, this structure:
   1. `# La Guerra de los 3.5 Segundos` + one-sentence hook.
   2. `## Hallazgo principal`: hero sentence + table of the 4 findings with numbers and **confidence** (🟢 robusto / 🟡 moderado).
-  3. `## Para quién y qué decisión cambia`: Coordinador defensivo (rush de 4 con stunt, no blitz en 3ro y largo, entrena el get-off), Coordinador ofensivo (más play action, no dejar al RB recogiendo, diseñar lectura < 3.5 s), Jugadores (get-off personal, reloj del QB).
-  4. `## Cómo lo medimos`: tracking 10 Hz (811 MB, 122 juegos), definiciones, efecto dentro del mismo jugador, ajuste por down y distancia, estabilidad entre mitades de temporada (0.79).
-  5. `## Lo que descartamos` (fatiga, ruido, doble marca, presión fantasma).
+  3. `## Para quién y qué decisión cambia`: Coordinador defensivo (blitz en 1ro/2do y 3ro corto, no en 3ro y largo; ahí rush de 4 con stunt; entrena el get-off), Coordinador ofensivo (play action para la jugada grande, con rollout para bajar sacks; ojo con el RB recogiendo blitz; diseñar lectura < 3.5 s), Jugadores (get-off personal; QB: cuánto sostienes el balón).
+  4. `## Cómo lo medimos`: tracking 10 Hz (811 MB, 122 juegos), definiciones, efecto dentro del mismo jugador (robusto: 0.7–1.2 pts por 0.1 s con controles de situación, tiempo de lanzamiento, play action y compañeros en la misma jugada; z ≥ 7 con errores agrupados por jugador), ajuste por down y distancia exacta, estabilidad entre mitades de temporada (0.79). Nota honesta: 3.5 s es un umbral, no un precipicio; el riesgo crece de forma continua (~2.5× por medio segundo).
+  5. `## Lo que descartamos` (fatiga, ruido, doble marca, presión fantasma, play action sube el éxito, reloj personal del QB, tackles pesados vs rushers ligeros).
   6. `## Cómo correrlo` (keep commands) + note that `backend/precomputed/` is regenerated with `python -m backend.pipeline.build_tracking_features`.
   7. Screenshots.
 
@@ -211,7 +231,7 @@ Glossary, one line each: **Pase / dropback**, **Pocket** (la bolsa de protecció
 3. ~~Per-rusher get-off in film room roster~~
 4. ~~New showcase plays 5–6~~
 5. ~~Team get-off vs league in gameplan~~
-**Never cut:** removal of the 3 false claims, the cliff + get-off + blitz-bet charts, Spanish hero/README, `--entregar`.
+**Never cut:** removal of the 3 false claims **and the AUDIT corrections (PA success, per-QB clock, speed vs size, "precipicio")**, the danger-zone + get-off + blitz-bet charts, Spanish hero/README, `--entregar`.
 
 ## Minimum Safe Patch (fallback only, 15 min on v1)
 On the v1 code: delete the double-team paradox chart/cards/hints/showcase; delete the gravity score and "invisible stars"; replace "Unleash blitz on 3rd & long" with "En 3ro y largo el blitz da más sacks (15.2% vs 9.1%) pero también ~4 puntos más de conversiones a la misma distancia; funciona mejor en 1ro/2do y 3ro corto"; fix completion % denominator; fix block labels; rewrite README headline around pressure + stunts + play action. Then Stage 6.

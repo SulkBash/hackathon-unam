@@ -51,7 +51,7 @@ En el navegador abre siempre `http://localhost:...`, no `127.0.0.1`.
    - **Tiempo de lanzamiento:** muchas cosas "pasan" en jugadas largas solo porque son largas. Compara dentro de la misma franja de `ttt`.
    - **Jugador:** para métricas de jugador, compara al jugador contra su propio promedio (efectos fijos), no entre jugadores.
    - **Equipo:** un "efecto de jugador" puede ser del equipo (ej. dos jugadores de BUF arriba en un ranking).
-3. **Estabilidad:** una métrica de jugador o equipo solo se muestra si se repite entre semanas 1–4 y 5–8 (correlación entre mitades). Referencia: get-off 0.79 (sí), presión propia 0.39 (sí), "gravity" −0.12 (no), vulnerabilidad de equipo a stunts 0.15 (no).
+3. **Estabilidad:** una métrica de jugador o equipo solo se muestra si se repite entre semanas 1–4 y 5–8 (correlación entre mitades). Referencia: get-off 0.79 (sí), presión propia 0.32 (moderada; ≥60 snaps por mitad, n=101), % de jugadas del QB > 3.5 s 0.64 (sí), get-off promedio de una defensa 0.36 (solo "tendencia"), caída del QB después de 3.5 s −0.13 (no), "gravity" −0.12 (no), vulnerabilidad de equipo a stunts 0.15 (no).
 4. **Busca artefactos de definición:** si el resultado sale "100%" o "siempre", probablemente es aritmético. PFF solo registra el **primer** defensor que bloquea cada bloqueador (`pff_nflIdBlockedPlayer`), así que en stunts aparecen "dobles" y "rusher libre" falsos.
 5. **Muestra el tamaño de muestra** (`n`) y marca en gris lo que tenga n < 50.
 6. **Reporta el número ajustado, no el crudo**, cuando difieran.
@@ -60,7 +60,8 @@ En el navegador abre siempre `http://localhost:...`, no `127.0.0.1`.
 ## Definiciones (úsalas exactamente)
 
 - **Presión (jugada):** algún rusher con `pff_hit|pff_hurry|pff_sack == 1`. **Presión (rusher):** lo mismo por fila.
-- **Éxito:** 1er down `playResult >= 0.4*yardsToGo`; 2do `>= 0.6*yardsToGo`; 3ro/4to `>= yardsToGo`. **Conversión:** `playResult >= yardsToGo`. **Jugada grande:** `prePenaltyPlayResult >= 20`.
+- **Éxito:** 1er down `playResult >= 0.4*yardsToGo`; 2do `>= 0.6*yardsToGo`; 3ro/4to `>= yardsToGo`. **Conversión:** `playResult >= yardsToGo`. **Jugada grande:** `prePenaltyPlayResult >= 20`. Excluye `down == 0` (35 intentos de 2 puntos con `yardsToGo` 0: éxito 100% por construcción) de todo cálculo de éxito o situación.
+- **Situación (cuidado):** el éxito depende del down (1ro 54.7%, 2do 49.8%, 3ro 39.5%) porque la vara cambia. Todo lo que se use más en un down que en otro (play action, blitz) se compara a la misma down y `yardsToGo` exacta.
 - **% de pases completos:** C / (C + I + IN). Nunca contar sacks ni scrambles como incompletos.
 - **Blitz:** 5+ rushers. **Stunt:** la jugada tiene algún `pff_blockType == "SW"`.
 - **Duelo perdido (bloqueador):** hitAllowed, hurryAllowed, sackAllowed o beatenByDefender == 1.
@@ -73,13 +74,13 @@ En el navegador abre siempre `http://localhost:...`, no `127.0.0.1`.
 | Hallazgo | Evidencia | Confianza |
 |---|---|---|
 | La presión decide la jugada | Éxito 57.2% → 34.4%; completos 67.8% → 46.6% | 🟢 |
-| El precipicio de 3.5 s | Sacks: 5.1% (3.0–3.5 s) → 13.2% (3.5–4 s) → 23.4% (4–5 s). Jugadas grandes máximas en 3.0–3.5 s (14.8%) | 🟢 |
-| El get-off gana | Mismo jugador: 0.3 s antes que su mediana → 21.3% de presión; 0.3 s después → 7.4%. ~0.9 pts por cada 0.1 s sobre una base de 11.0%. Se sostiene en 3ro y 7+ y en el resto. Estabilidad 0.79 | 🟢 |
-| El play action congela a los rushers | Get-off 0.75 → 0.89 s; ttt mediano 2.7 → 3.3 s; misma presión (36.9% vs 37.8%); éxito 47.0% → 54.4%; jugadas grandes 7.9% → 13.5%; se usa en solo 23.8% de los pases. Rollouts diseñados: 2.5% sacks vs 6.7% (84% son play action) | 🟢 |
-| El blitz depende del down | A la misma `yardsToGo`: 1ro/2do −2.4 pts de éxito rival; 3ro/4to y 1–3 −5.4; 4–6 −1.6; 3ro/4to y 7+ **+4.2** conversiones (z≈1.7), con más sacks (9.1% → 15.2%). Se usa más justo en 3ro y largo (30% vs 22%) | 🟡 |
-| Rush de 4 con stunt ≈ blitz sin mandar más gente | Ajustado por down y distancia: −2.4 pts (IC 95% −4.8 a −0.1) vs −2.9 del blitz sin stunt | 🟡 |
-| Reloj personal del QB | Éxito antes/después de 3.5 s: Mayfield 57.0 → 19.4, Burrow 56.0 → 27.1, Brady 57.4 → 30.2; Prescott 54.8 → 57.1. ~50–70 jugadas tardías por QB | 🟡 |
-| Eslabones débiles en protección | RB recogiendo blitz (PU) pierde 26.0% vs 13.9% de la línea (PP). Tackles 40–80 lb más pesados que su rusher pierden 16.4% vs 9.6% | 🟡 |
+| Zona de peligro después de 3.5 s (umbral, no precipicio) | Sacks: 5.1% (3.0–3.5 s) → 13.2% (3.5–4 s) → 23.4% (4–5 s): el riesgo se multiplica ~2.5× cada medio segundo (×2.6, ×3.3, ×2.5, ×2.5). El éxito cae de forma continua (~7 pts por segundo; un quiebre en 3.5 s no mejora a una recta: F=1.5). Jugadas grandes máximas en 3.0–3.5 s (14.8%) | 🟢 |
+| El get-off gana | Mismo jugador: 0.3 s antes que su mediana → 21.3% de presión; 0.3 s después → 7.4%. ~0.9 pts por cada 0.1 s sobre una base de 11.0% (todos los snaps de DL). Robusto: 0.7–1.2 pts con controles de down × distancia, franja de ttt, play action, blitz/stunt y compañeros en el mismo snap (z ≥ 7.4 con errores agrupados por jugador; z 10 agrupando por juego). Edge 1.6 (z 10.5) vs Interior 0.5 (z 3.7). Se sostiene en 3ro y 7+ y en el resto. Estabilidad 0.79 | 🟢 |
+| El play action es el arma de la jugada grande | A la misma down y `yardsToGo` exacta: jugadas grandes 13.6% vs 7.7% (1.8×); éxito igual (54.1% vs 54.0%); más presión (37.8% vs 30.5%) y sacks (6.5% vs 4.2%) porque el amague cuesta ~0.8 s (1ro y 10: ttt mediano 3.4 vs 2.6). Congela a cada rusher 0.12 s (mismo jugador y situación; crudo 0.14). Se usa en 23.8% de los pases. Con rollout los sacks bajan: 2.7% (PA + rollout diseñado, 10 de 365) vs 7.3% (PA sin rollout). Verificado con 3 métodos (estratificado, MCO con efectos fijos, bootstrap): jugadas grandes z 6.7, presión z 5.4, éxito −0.2 (ee 1.4) | 🟢 |
+| El blitz depende del down | A la misma `yardsToGo`: 1ro/2do −2.3 pts de éxito rival; 3ro/4to y 1–3 −5.2; 4–6 −1.4; 3ro/4to y 7+ **+4.5** conversiones, con más sacks (9.5% → 15.1%). Cada celda sola no es significativa; el cambio entre 1ro/2do y 3ro y 7+ está en el límite (diferencia 6.7 pts, z≈2.0, p≈0.05). Se usa más justo en 3ro y largo (30% vs 22%) | 🟡 |
+| Rush de 4 con stunt ≈ blitz sin mandar más gente | Ajustado por down y distancia: −2.4 pts (IC 95% −4.8 a −0.1) vs −2.9 del blitz sin stunt. En 3ro/4to y 7+ (misma distancia exacta, vs rush de 4 sin stunt con 29.4% de conversión, n=540): 4 con stunt −4.8 pts (ee 3.1, n=368); blitz sin stunt −0.8 (ee 4.1, n=212); blitz con stunt +4.6 (ee 4.4, n=179). Ninguno es significativo solo: mostrar como "muestra chica" | 🟡 |
+| Cuánto sostiene el balón cada QB | % de dropbacks > 3.5 s por QB se repite entre mitades (0.64; ttt mediano 0.50). Liga (sin intentos de 2 puntos): 25.5% de los pases pasan de 3.5 s; éxito 52.8% antes vs 35.9% después | 🟢 |
+| Eslabones débiles en protección | RB recogiendo blitz (PU) pierde 26.0% vs 13.9% de la línea (PP). En jugadas de blitz, RB a la ruta vs RB bloqueando (misma distancia): éxito +3.4 (ee 2.3), sacks −1.8 (ee 1.2): no concluyente, solo dice que mandarlo a la ruta no empeora. El chip no ayuda (n=81 en blitz, éxito 43.2%) | 🟡 |
 | Carril débil de la línea por equipo | Se repite entre mitades en 12 de 32 equipos (~2× azar): mostrar como "tendencia" con `n` | 🟡 |
 
 ## Descartado (no mostrar como hallazgo; sí en "Lo que descartamos")
@@ -87,7 +88,11 @@ En el navegador abre siempre `http://localhost:...`, no `127.0.0.1`.
 - **"2 dobles en 5 contra 4 = rusher libre 100%"**: aritmética (0 de 781 jugadas podían salir distinto); 53% son stunts mal registrados por la regla del primer bloqueo.
 - **"Trench Gravity" / estrellas invisibles** (Lotulelei, Zimmer, Vea): correlación entre mitades −0.12; BUF presionaba 41% con Lotulelei fuera.
 - **"Blitz en 3ro y largo = golpe de gracia"**: da más sacks pero también más conversiones.
-- **"Rollout a la derecha: 6.4× menos sacks"**: escogido a conveniencia (izquierda 5.4%); es efecto del play action.
+- **"Rollout a la derecha: 6.4× menos sacks"**: escogido a conveniencia (izquierda 5.4%). Lo defendible es rollouts diseñados de ambos lados: 2.5% vs 6.7% (y dentro del play action: 2.7% vs 7.3%).
+- **"El play action sube el éxito de 47% a 54%"**: artefacto de down (40% de los pases de 1ro son PA vs 4% en 3ro, y en 1ro la vara es más baja). A la misma down y distancia: 54.1% vs 54.0%. "Misma presión" también es crudo: ajustado, PA tiene +7.3 pts de presión.
+- **"Cada QB tiene su propio reloj"** (Mayfield 57→19 vs Prescott 55→57): la caída por QB no se repite entre mitades (−0.13), y simular a todos los QB con la misma caída reproduce la dispersión observada (p=0.22): no se distingue del ruido.
+- **"Tackles 40–80 lb más pesados pierden más (16.4% vs 9.6%)"**: confusión por tipo de rusher (el grupo "tackle igual o más ligero" es 17% edges; el de 40–80 lb, 97%). Con el mismo rusher, un tackle más pesado pierde *menos* (−0.9 pts por +10 lb, z −2.7 agrupando por rusher): importa quién hace el rush (ligero = edge = mejor pasador de presión), no el peso del tackle.
+- **"La 3.5 s es un precipicio"**: no hay quiebre estadístico; es un umbral útil en una curva continua.
 - **"Presión fantasma"** (rusher a 2–3 yd sin presión baja el % de completos): desaparece dentro de la misma franja de ttt.
 - **Fatiga del rusher**: la presión *sube* con los snaps (sesgo de selección: las estrellas juegan más).
 - **Ruido del estadio**: efecto mínimo.
