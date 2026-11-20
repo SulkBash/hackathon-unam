@@ -2,30 +2,54 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Fuentes empaquetadas con rutas relativas (funcionan en la subruta de AWS).
+   Barlow: texto e interfaz (rótulos de carretera → señalética de estadio).
+   Alfa Slab One: SOLO cifras grandes, como los números pintados en el campo. */
+@font-face { font-family: 'Barlow'; src: url('./assets/fonts/barlow-latin-400-normal.woff2') format('woff2'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'Barlow'; src: url('./assets/fonts/barlow-latin-500-normal.woff2') format('woff2'); font-weight: 500; font-display: swap; }
+@font-face { font-family: 'Barlow'; src: url('./assets/fonts/barlow-latin-600-normal.woff2') format('woff2'); font-weight: 600 900; font-display: swap; }
+@font-face { font-family: 'Alfa Slab One'; src: url('./assets/fonts/alfa-slab-one-latin-400-normal.woff2') format('woff2'); font-weight: 400 900; font-display: swap; }
+
 @layer base {
-  body {
-    background-color: #060a13;
-    color: #f1f5f9;
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
-  }
+  :root { --tg-ease: cubic-bezier(0.22, 1, 0.36, 1); --tg-ease-draw: cubic-bezier(0.65, 0, 0.35, 1); }
+  body { background-color: #0c2219; color: #f2f4ee; font-family: Barlow, system-ui, 'Segoe UI', sans-serif; -webkit-font-smoothing: antialiased; }
+  /* Títulos en altas y bajas, peso como jerarquía. Sin mayúsculas forzadas ni itálicas. */
+  h1, h2, h3 { font-weight: 600; letter-spacing: -0.01em; text-wrap: balance; }
+  p { text-wrap: pretty; }
+  ::selection { background: rgba(255, 212, 59, 0.35); }
+  :focus-visible { outline: 2px solid #ffd43b; outline-offset: 2px; }
 }
 
-.tabular-nums {
-  font-variant-numeric: tabular-nums;
+@layer components {
+  /* Cifra grande pintada */
+  .tg-cifra { font-family: 'Alfa Slab One', Rockwell, Georgia, serif; font-weight: 400; line-height: 0.9; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+  /* Pestaña: subrayado amarillo = "la línea" del tab activo, se dibuja al seleccionar */
+  .tg-tab { position: relative; padding: 18px 2px; font-size: 15px; font-weight: 500; color: #a9bcb1; transition: color 150ms; }
+  .tg-tab:hover { color: #f2f4ee; }
+  .tg-tab::after { content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 3px; background: #ffd43b; transform: scaleX(0); transform-origin: left; transition: transform 300ms var(--tg-ease-draw); }
+  .tg-tab[aria-selected='true'] { color: #f2f4ee; }
+  .tg-tab[aria-selected='true']::after { transform: scaleX(1); }
+  /* Acción principal: una por vista */
+  .tg-btn { display: inline-flex; align-items: center; height: 44px; padding: 0 20px; border-radius: 4px; font-weight: 600; font-size: 15px; transition: background-color 150ms, transform 150ms var(--tg-ease); }
+  .tg-btn:active { transform: translateY(1px); }
+  .tg-btn-primary { background: #ffd43b; color: #0c2219; }
+  .tg-btn-primary:hover { background: #ffdd63; }
+  .tg-btn-secondary { color: #f2f4ee; box-shadow: inset 0 0 0 1px #5a7566; }
+  .tg-btn-secondary:hover { background: #143829; }
 }
 
-/* Custom slim dark scrollbar */
-::-webkit-scrollbar {
-  width: 7px;
-  height: 7px;
-}
-::-webkit-scrollbar-track {
-  background: #0b1120;
-}
-::-webkit-scrollbar-thumb {
-  background: #334155;
-  border-radius: 9999px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+/* Cambio de pestaña: el contenido entra una sola vez (respuesta a la acción del usuario) */
+@keyframes tg-enter { from { opacity: 0; transform: translateY(8px); } }
+.tg-enter { animation: tg-enter 240ms var(--tg-ease) backwards; }
+/* Carga: esqueleto con la forma del contenido, sin spinner */
+@keyframes tg-skeleton { 50% { opacity: 0.55; } }
+.tg-skeleton { background: #113024; border-radius: 4px; animation: tg-skeleton 1.4s ease-in-out infinite; }
+
+.tabular-nums { font-variant-numeric: tabular-nums; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: #0c2219; }
+::-webkit-scrollbar-thumb { background: #24443a; border-radius: 9999px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; }
 }

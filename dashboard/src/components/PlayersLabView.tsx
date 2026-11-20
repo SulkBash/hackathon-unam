@@ -4,7 +4,7 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
-  Legend,
+  LabelList,
   ReferenceLine,
   ResponsiveContainer,
   Scatter,
@@ -12,382 +12,604 @@ import {
   Tooltip,
   XAxis,
   YAxis,
-  ZAxis,
 } from 'recharts'
-import type { GravityDefender, PlayersData } from '../types'
+import { TG, f1, n0, signed, tgAxis } from '../theme'
+import type { GetoffLeader, GuerraData, IronLineman, PlayersData, QbClockRow, QbClocksData, RushGroup } from '../types'
 
 interface Props {
   data: PlayersData
+  qbClocks: QbClocksData | null
+  guerra: GuerraData | null
   onSelectTeam: (team: string) => void
 }
 
-type SubTab = 'defenders' | 'linemen' | 'qbs'
+type GroupFilter = 'Todos' | RushGroup
+type OlFilter = 'Todos' | 'T' | 'G' | 'C'
+type SortKey = 'getoff_score' | 'getoff_avg' | 'pressure_rate' | 'sacks' | 'snaps' | 'strain_avg'
 
-export default function PlayersLabView({ data, onSelectTeam }: Props) {
-  const [subTab, setSubTab] = useState<SubTab>('defenders')
-  const [search, setSearch] = useState('')
-  const [onlyInvisible, setOnlyInvisible] = useState(false)
-  const [olPos, setOlPos] = useState<'ALL' | 'T' | 'G' | 'C'>('ALL')
+const GROUP_LABEL: Record<RushGroup, string> = { Edge: 'Edge (DE·OLB)', Interior: 'Interior (DT·NT)' }
+const OL_LABEL: Record<OlFilter, string> = { Todos: 'Todos', T: 'Tackles', G: 'Guardias', C: 'Centros' }
+const LANE_LABEL: Record<string, string> = {
+  LT: 'Tackle izq.',
+  LG: 'Guardia izq.',
+  C: 'Centro',
+  RG: 'Guardia der.',
+  RT: 'Tackle der.',
+}
+const SMALL_N = 50
 
-  const q = search.trim().toLowerCase()
+/** "Myles Garrett" → "M. Garrett" */
+function shortName(name: string): string {
+  const parts = (name ?? '').trim().split(/\s+/)
+  if (parts.length < 2) return name
+  return `${parts[0][0]}. ${parts.slice(1).join(' ')}`
+}
 
-  const filteredDefenders = useMemo(() => {
-    return data.defenders.filter((d) => {
-      if (onlyInvisible && !d.invisible_star) return false
-      if (q && !d.displayName.toLowerCase().includes(q) && !d.team.toLowerCase().includes(q)) return false
-      return true
-    })
-  }, [data.defenders, onlyInvisible, q])
+const keyOf = (d: GetoffLeader) => (d.nflId !== undefined ? String(d.nflId) : `${d.name}|${d.team}`)
+
+function weightedMean(rows: GetoffLeader[]): number | null {
+  const snaps = rows.reduce((a, r) => a + (r.snaps || 0), 0)
+  if (!snaps) return null
+  return rows.reduce((a, r) => a + r.getoff_avg * (r.snaps || 0), 0) / snaps
+}
+
+function Pills<T extends string>({ options, value, onChange, labels, counts }: {
+  options: readonly T[]
+  value: T
+  onChange: (v: T) => void
+  labels: Record<T, string>
+  counts?: Partial<Record<T, number>>
+}) {
+  return (
+    <div className="flex flex-wrap gap-1.5" role="radiogroup">
+      {options.map((opt) => {
+        const on = opt === value
+        return (
+          <button
+            key={opt}
+            role="radio"
+            aria-checked={on}
+            onClick={() => onChange(opt)}
+            className={`rounded-md px-3 py-1.5 text-sm font-semibold transition-colors ${
+              on ? 'bg-linea text-linea-tinta' : 'border border-slate-700 text-slate-300 hover:border-slate-600 hover:text-pintura'
+            }`}
+          >
+            {labels[opt]}
+            {counts?.[opt] !== undefined && (
+              <span className={`ml-1.5 tabular-nums ${on ? 'opacity-70' : 'text-slate-400'}`}>{counts[opt]}</span>
+            )}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+function TeamButton({ team, onSelectTeam }: { team: string; onSelectTeam: (t: string) => void }) {
+  return (
+    <button
+      onClick={() => onSelectTeam(team)}
+      title={`Abrir el plan de juego de ${team}`}
+      className="rounded px-2 py-0.5 text-[13px] font-semibold text-pintura ring-1 ring-slate-700 transition-colors hover:bg-slate-800"
+    >
+      {team}
+    </button>
+  )
+}
+
+function SearchBox({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) {
+  return (
+    <input
+      type="search"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      aria-label={placeholder}
+      className="w-56 rounded-md border border-slate-700 bg-slate-950 px-3 py-1.5 text-sm text-pintura placeholder-slate-500 outline-none focus:border-slate-500"
+    />
+  )
+}
+
+export default function PlayersLabView({ data, qbClocks, guerra, onSelectTeam }: Props) {
+  const leaders = data.getoff_leaders ?? []
+  const linemen = data.linemen ?? []
+
+  const [group, setGroup] = useState<GroupFilter>('Todos')
+  const [sortKey, setSortKey] = useState<SortKey>('getoff_score')
+  const [sortAsc, setSortAsc] = useState(false)
+  const [showAll, setShowAll] = useState(false)
+  const [qDl, setQDl] = useState('')
+  const [olPos, setOlPos] = useState<OlFilter>('Todos')
+  const [qOl, setQOl] = useState('')
+
+  const inGroup = useMemo(
+    () => (group === 'Todos' ? leaders : leaders.filter((d) => d.group === group)),
+    [leaders, group],
+  )
+
+  const topSet = useMemo(() => {
+    const top = [...inGroup].sort((a, b) => b.pressure_rate - a.pressure_rate).slice(0, 8)
+    return new Set(top.map(keyOf))
+  }, [inGroup])
+
+  const edgeRows = useMemo(() => inGroup.filter((d) => d.group === 'Edge'), [inGroup])
+  const interiorRows = useMemo(() => inGroup.filter((d) => d.group === 'Interior'), [inGroup])
+
+  const groupCounts = useMemo(
+    () => ({
+      Todos: leaders.length,
+      Edge: leaders.filter((d) => d.group === 'Edge').length,
+      Interior: leaders.filter((d) => d.group === 'Interior').length,
+    }),
+    [leaders],
+  )
+  const edgeMean = useMemo(() => weightedMean(leaders.filter((d) => d.group === 'Edge')), [leaders])
+  const interiorMean = useMemo(() => weightedMean(leaders.filter((d) => d.group === 'Interior')), [leaders])
+
+  const tableRows = useMemo(() => {
+    const q = qDl.trim().toLowerCase()
+    const rows = inGroup.filter(
+      (d) => !q || d.name.toLowerCase().includes(q) || d.team.toLowerCase().includes(q),
+    )
+    const dir = sortAsc ? 1 : -1
+    return [...rows].sort((a, b) => (a[sortKey] - b[sortKey]) * dir || b.snaps - a.snaps)
+  }, [inGroup, qDl, sortKey, sortAsc])
+
+  const visibleRows = showAll ? tableRows : tableRows.slice(0, 30)
+
+  function onSort(k: SortKey) {
+    if (k === sortKey) setSortAsc((a) => !a)
+    else {
+      setSortKey(k)
+      setSortAsc(k === 'getoff_avg')
+    }
+  }
 
   const filteredLinemen = useMemo(() => {
-    return data.linemen.filter((l) => {
-      if (olPos !== 'ALL' && l.position !== olPos) return false
+    const q = qOl.trim().toLowerCase()
+    return linemen.filter((l: IronLineman) => {
+      if (olPos !== 'Todos' && l.position !== olPos) return false
       if (q && !l.displayName.toLowerCase().includes(q) && !l.team.toLowerCase().includes(q)) return false
       return true
     })
-  }, [data.linemen, olPos, q])
+  }, [linemen, olPos, qOl])
 
-  const filteredQbs = useMemo(() => {
-    return data.qbs.filter((qb) => {
-      if (q && !qb.displayName.toLowerCase().includes(q) && !qb.team.toLowerCase().includes(q)) return false
-      return true
-    })
-  }, [data.qbs, q])
+  const league = qbClocks?.league
+  const qbRows = useMemo(
+    () =>
+      (qbClocks?.qbs ?? []).map((q) => ({
+        ...q,
+        label: `${shortName(q.name)} · ${q.team}`,
+        tag: `${f1(q.late_share)}% · ${f1(q.ttt_median)} s`,
+      })),
+    [qbClocks],
+  )
+  const stabilityGetoff = guerra?.getoff?.stability
+  const stabilityQb = qbClocks?.stability?.late_share
+
+  // Custom scatter dot: Edge = filled paint, Interior = hollow ring (group encoded by fill, not hue).
+  const renderDot = (props: unknown) => {
+    const p = props as { cx?: number; cy?: number; payload?: GetoffLeader }
+    if (p.cx == null || p.cy == null || !p.payload) return <g />
+    const d = p.payload
+    const hollow = d.group === 'Interior'
+    const labelled = topSet.has(keyOf(d))
+    return (
+      <g>
+        <circle
+          cx={p.cx}
+          cy={p.cy}
+          r={labelled ? 5.5 : 4.5}
+          fill={hollow ? 'none' : TG.text}
+          fillOpacity={hollow ? 0 : labelled ? 0.95 : 0.55}
+          stroke={TG.text}
+          strokeOpacity={hollow ? (labelled ? 0.95 : 0.65) : 0}
+          strokeWidth={1.6}
+        />
+        {labelled && (
+          <text x={p.cx} y={p.cy - 10} textAnchor="middle" fill={TG.text} style={{ font: '600 12px Barlow, sans-serif' }}>
+            {shortName(d.name)}
+          </text>
+        )}
+      </g>
+    )
+  }
+
+  const SortTh = ({ k, children, title }: { k: SortKey; children: React.ReactNode; title?: string }) => (
+    <th className="px-3 py-2.5 text-right font-medium" aria-sort={sortKey === k ? (sortAsc ? 'ascending' : 'descending') : 'none'}>
+      <button onClick={() => onSort(k)} title={title} className={`hover:text-pintura ${sortKey === k ? 'text-pintura' : ''}`}>
+        {children}
+        {sortKey === k && <span className="ml-1 text-slate-400">{sortAsc ? '▲' : '▼'}</span>}
+      </button>
+    </th>
+  )
 
   return (
-    <div className="space-y-6">
-      {/* Sub-navigation & Filters */}
-      <section className="flex flex-col gap-3 rounded-2xl border border-slate-800 bg-slate-900/80 p-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-wrap gap-2">
-          {(
-            [
-              ['defenders', 'Trench Gravity Monsters (DL / Edge)'],
-              ['linemen', 'Iron-Wall Blockers (O-Line)'],
-              ['qbs', 'QB Poise Under Collapse'],
-            ] as [SubTab, string][]
-          ).map(([id, label]) => (
-            <button
-              key={id}
-              onClick={() => setSubTab(id)}
-              className={`rounded-xl px-3.5 py-2 text-xs font-bold transition ${
-                subTab === id
-                  ? 'bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/20'
-                  : 'border border-slate-700 bg-slate-950/70 text-slate-300 hover:border-slate-500'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
+    <div className="space-y-14">
+      {/* ------------------------------------------------------------------ */}
+      {/* 1. GET-OFF LEADERBOARD                                              */}
+      {/* ------------------------------------------------------------------ */}
+      <section className="space-y-8">
+        <div className="grid gap-8 lg:grid-cols-12">
+          <div className="space-y-5 lg:col-span-4">
+            <h2 className="text-[28px] leading-tight text-pintura">El arranque es un rasgo del jugador, no una casualidad</h2>
+            {stabilityGetoff !== undefined && stabilityGetoff !== null && (
+              <div className="flex items-end gap-4">
+                <span className="tg-cifra text-[64px] text-pintura">{f1(stabilityGetoff, 2)}</span>
+                <p className="pb-1 text-base text-slate-300">
+                  correlación del get-off promedio de cada jugador entre las semanas 1–4 y 5–8
+                </p>
+              </div>
+            )}
+            <p className="max-w-[60ch] text-base text-slate-300">
+              Get-off: segundos desde el snap hasta que el rusher avanza 1 yarda. Solo se compara dentro del grupo:
+              el interior choca de inmediato con un bloqueador
+              {edgeMean !== null && interiorMean !== null && (
+                <>
+                  {' '}
+                  (en esta lista, Edge promedia {f1(edgeMean, 2)} s e Interior {f1(interiorMean, 2)} s)
+                </>
+              )}
+              .
+            </p>
+            {guerra?.getoff?.pp_per_tenth !== undefined && (
+              <p className="max-w-[60ch] text-base text-slate-300">
+                Y arrancar antes que su propio promedio paga: ~{f1(guerra.getoff.pp_per_tenth)} pts de presión por cada
+                0.1 s (ver El Reloj).
+              </p>
+            )}
+            <Pills
+              options={['Todos', 'Edge', 'Interior'] as const}
+              value={group}
+              onChange={(g) => {
+                setGroup(g)
+                setShowAll(false)
+              }}
+              labels={{ Todos: 'Todos', Edge: 'Edge', Interior: 'Interior' }}
+              counts={groupCounts}
+            />
+            <div className="flex flex-wrap items-center gap-5 text-sm text-slate-300">
+              <span className="inline-flex items-center gap-2">
+                <svg width="12" height="12" aria-hidden="true">
+                  <circle cx="6" cy="6" r="5" fill={TG.text} />
+                </svg>
+                {GROUP_LABEL.Edge}
+              </span>
+              <span className="inline-flex items-center gap-2">
+                <svg width="12" height="12" aria-hidden="true">
+                  <circle cx="6" cy="6" r="4.4" fill="none" stroke={TG.text} strokeWidth="1.6" />
+                </svg>
+                {GROUP_LABEL.Interior}
+              </span>
+            </div>
+          </div>
+
+          <div className="lg:col-span-8">
+            {leaders.length === 0 ? (
+              <div className="flex h-80 items-center justify-center rounded-lg border border-slate-800 text-base text-slate-400">
+                No hay datos de get-off disponibles.
+              </div>
+            ) : (
+              <>
+                <div className="h-[380px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ScatterChart margin={{ top: 22, right: 28, left: 8, bottom: 30 }}>
+                      <CartesianGrid stroke={TG.grid} />
+                      <XAxis
+                        type="number"
+                        dataKey="getoff_avg"
+                        name="Get-off"
+                        reversed
+                        domain={['dataMin - 0.02', 'dataMax + 0.02']}
+                        tickFormatter={(v: number) => v.toFixed(2)}
+                        {...tgAxis}
+                        label={{ value: 'Get-off promedio (s) · más rápido →', position: 'insideBottom', offset: -18, fill: TG.axis, fontSize: 13 }}
+                      />
+                      <YAxis
+                        type="number"
+                        dataKey="pressure_rate"
+                        name="Presión"
+                        unit="%"
+                        domain={[0, 'auto']}
+                        {...tgAxis}
+                        label={{ value: '% de snaps con presión', angle: -90, position: 'insideLeft', offset: 10, fill: TG.axis, fontSize: 13, style: { textAnchor: 'middle' } }}
+                      />
+                      <Tooltip
+                        cursor={{ strokeDasharray: '3 3', stroke: TG.tooltipBorder }}
+                        content={({ active, payload }) => {
+                          if (!active || !payload?.length) return null
+                          const d = payload[0].payload as GetoffLeader
+                          return (
+                            <div className="rounded border border-slate-600 bg-cesped-claro px-3 py-2 text-sm text-pintura">
+                              <div className="font-semibold">{d.name}</div>
+                              <div className="text-slate-300">
+                                {d.team} · {d.position} · {GROUP_LABEL[d.group] ?? d.group}
+                              </div>
+                              <div className="mt-1.5 space-y-0.5 tabular-nums text-slate-200">
+                                <div>Get-off promedio: {f1(d.getoff_avg, 2)} s</div>
+                                <div>
+                                  Presión: {f1(d.pressure_rate)}% de {n0(d.snaps)} snaps · {n0(d.sacks)} sacks
+                                </div>
+                                <div>Puntaje get-off: {f1(d.getoff_score, 0)} (dentro de {d.group})</div>
+                              </div>
+                            </div>
+                          )
+                        }}
+                      />
+                      {edgeRows.length > 0 && <Scatter name="Edge" data={edgeRows} shape={renderDot} isAnimationActive={false} />}
+                      {interiorRows.length > 0 && (
+                        <Scatter name="Interior" data={interiorRows} shape={renderDot} isAnimationActive={false} />
+                      )}
+                    </ScatterChart>
+                  </ResponsiveContainer>
+                </div>
+                <p className="mt-2 text-sm text-slate-400">
+                  Rushers de línea defensiva con al menos 150 snaps de pass rush · nombres: los 8 con más presión del filtro.
+                  Entre jugadores el get-off se compara solo dentro de su grupo.
+                </p>
+              </>
+            )}
+          </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {subTab === 'defenders' && (
-            <button
-              onClick={() => setOnlyInvisible((v) => !v)}
-              className={`rounded-xl border px-3 py-2 text-xs font-bold transition ${
-                onlyInvisible
-                  ? 'border-amber-400 bg-amber-500/20 text-amber-300'
-                  : 'border-slate-700 bg-slate-950/60 text-slate-300 hover:border-amber-400/50'
-              }`}
-            >
-              ★ Invisible Box-Score Stars Only (≤2 sacks)
-            </button>
-          )}
-          {subTab === 'linemen' && (
-            <div className="flex gap-1">
-              {(['ALL', 'T', 'G', 'C'] as const).map((pos) => (
-                <button
-                  key={pos}
-                  onClick={() => setOlPos(pos)}
-                  className={`rounded-lg px-2.5 py-1.5 text-xs font-bold ${
-                    olPos === pos ? 'bg-cyan-500 text-slate-950' : 'border border-slate-700 bg-slate-950 text-slate-300'
-                  }`}
-                >
-                  {pos}
-                </button>
-              ))}
+        {leaders.length > 0 && (
+          <div className="overflow-hidden rounded-lg border border-slate-800">
+            <div className="flex flex-col gap-3 border-b border-slate-800 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h3 className="text-lg text-pintura">
+                  Tabla de get-off · {group === 'Todos' ? 'todos los grupos' : GROUP_LABEL[group]}
+                </h3>
+                <p className="text-sm text-slate-400">
+                  Puntaje get-off: 0–100 dentro de su grupo (100 = el que arranca más rápido del grupo).
+                  {group === 'Todos' && ' Con «Todos», cada puntaje sigue siendo relativo a su propio grupo.'}
+                </p>
+              </div>
+              <SearchBox value={qDl} onChange={setQDl} placeholder="Busca jugador o equipo" />
             </div>
-          )}
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search player or team (e.g. Vea, BUF)..."
-            className="w-64 rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-emerald-400"
-          />
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="text-slate-400">
+                  <tr>
+                    <th className="px-4 py-2.5 font-medium">#</th>
+                    <th className="px-3 py-2.5 font-medium">Jugador</th>
+                    <th className="px-3 py-2.5 font-medium">Equipo</th>
+                    <th className="px-3 py-2.5 font-medium">Pos</th>
+                    <th className="px-3 py-2.5 font-medium">Grupo</th>
+                    <SortTh k="snaps">Snaps</SortTh>
+                    <SortTh k="getoff_avg" title="Segundos desde el snap hasta avanzar 1 yarda">Get-off (s)</SortTh>
+                    <SortTh k="getoff_score" title="0–100 dentro de su grupo">Puntaje get-off</SortTh>
+                    <SortTh k="pressure_rate">% presión</SortTh>
+                    <SortTh k="sacks">Sacks</SortTh>
+                    <SortTh k="strain_avg" title="Versión simplificada de STRAIN">Strain (tipo STRAIN)</SortTh>
+                  </tr>
+                </thead>
+                <tbody className="tabular-nums">
+                  {visibleRows.map((d, idx) => {
+                    const small = d.snaps < SMALL_N
+                    return (
+                      <tr key={keyOf(d)} className={`border-t border-slate-800/70 hover:bg-slate-900 ${small ? 'text-slate-500' : 'text-slate-200'}`}>
+                        <td className="px-4 py-2 text-slate-400">{idx + 1}</td>
+                        <td className="px-3 py-2 font-semibold text-pintura">{d.name}</td>
+                        <td className="px-3 py-2">
+                          <TeamButton team={d.team} onSelectTeam={onSelectTeam} />
+                        </td>
+                        <td className="px-3 py-2 text-slate-300">{d.position}</td>
+                        <td className="px-3 py-2 text-slate-300">{d.group}</td>
+                        <td className="px-3 py-2 text-right text-slate-400">{n0(d.snaps)}</td>
+                        <td className="px-3 py-2 text-right">{f1(d.getoff_avg, 2)}</td>
+                        <td className="px-3 py-2 text-right font-semibold text-pintura">{f1(d.getoff_score, 0)}</td>
+                        <td className="px-3 py-2 text-right">{f1(d.pressure_rate)}%</td>
+                        <td className="px-3 py-2 text-right">{n0(d.sacks)}</td>
+                        <td className="px-3 py-2 text-right text-slate-300">{f1(d.strain_avg, 2)}</td>
+                      </tr>
+                    )
+                  })}
+                  {visibleRows.length === 0 && (
+                    <tr>
+                      <td colSpan={11} className="px-4 py-6 text-center text-slate-400">
+                        Ningún jugador coincide con la búsqueda.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex flex-col gap-2 border-t border-slate-800 px-4 py-3 text-sm text-slate-400 sm:flex-row sm:items-center sm:justify-between">
+              <span>
+                Strain (tipo STRAIN): versión simplificada; en parte es resultado (quien llega al QB acumula strain).
+              </span>
+              {tableRows.length > 30 && (
+                <button onClick={() => setShowAll((v) => !v)} className="tg-btn-secondary rounded-md px-3 py-1.5 font-semibold text-pintura">
+                  {showAll ? 'Ver menos' : `Ver los ${tableRows.length}`}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* 2. QB CLOCKS                                                        */}
+      {/* ------------------------------------------------------------------ */}
+      <section className="border-t border-slate-800 pt-10">
+        <div className="grid gap-8 lg:grid-cols-12">
+          <div className="space-y-5 lg:col-span-4">
+            <h2 className="text-[28px] leading-tight text-pintura">Sostener el balón es un hábito del QB</h2>
+            {league?.late_share !== undefined && (
+              <div className="flex items-end gap-4">
+                <span className="tg-cifra text-[64px] text-pintura">
+                  {f1(league.late_share)}
+                  <span className="text-[32px]">%</span>
+                </span>
+                <p className="pb-1 text-base text-slate-300">de los pases de la liga salen después de 3.5 s</p>
+              </div>
+            )}
+            {league && league.success_early !== undefined && league.success_late !== undefined && (
+              <p className="max-w-[60ch] text-base text-slate-300">
+                En la liga, el éxito cae de {f1(league.success_early)}% a {f1(league.success_late)}% (
+                {signed(league.success_late - league.success_early)} pts) cuando el pase sale después de 3.5 s.
+              </p>
+            )}
+            <p className="max-w-[60ch] text-base text-slate-300">
+              Cuánto sostiene el balón cada QB
+              {stabilityQb !== undefined && stabilityQb !== null
+                ? `: se repite entre mitades de temporada (${f1(stabilityQb, 2)}).`
+                : '.'}
+            </p>
+            <div className="flex flex-wrap items-center gap-5 text-sm text-slate-300">
+              <span className="inline-flex items-center gap-2">
+                <span className="inline-block h-3 w-5 rounded-sm" style={{ background: TG.red }} />
+                Más que la liga
+              </span>
+              <span className="inline-flex items-center gap-2">
+                <span className="inline-block h-3 w-5 rounded-sm" style={{ background: TG.neutral }} />
+                Menos que la liga
+              </span>
+            </div>
+            <p className="max-w-[60ch] text-sm text-slate-400">
+              No mostramos el éxito antes y después de 3.5 s por QB: esa caída no se repite entre mitades de temporada
+              (ver «Lo que descartamos» en El Reloj).
+            </p>
+          </div>
+
+          <div className="lg:col-span-8">
+            {qbRows.length === 0 ? (
+              <div className="flex h-80 items-center justify-center rounded-lg border border-slate-800 text-base text-slate-400">
+                No hay datos del reloj de los QB disponibles.
+              </div>
+            ) : (
+              <>
+                <div style={{ height: Math.max(320, qbRows.length * 26 + 48) }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={qbRows} layout="vertical" margin={{ top: 22, right: 96, left: 8, bottom: 8 }} barCategoryGap={5}>
+                      <CartesianGrid stroke={TG.grid} horizontal={false} />
+                      <XAxis type="number" unit="%" domain={[0, 'auto']} {...tgAxis} />
+                      <YAxis
+                        type="category"
+                        dataKey="label"
+                        width={150}
+                        interval={0}
+                        tick={{ fill: TG.text, fontSize: 13 }}
+                        tickLine={false}
+                        axisLine={{ stroke: TG.grid }}
+                      />
+                      <Tooltip
+                        cursor={{ fill: 'rgba(242,244,238,0.06)' }}
+                        content={({ active, payload }) => {
+                          if (!active || !payload?.length) return null
+                          const q = payload[0].payload as QbClockRow
+                          return (
+                            <div className="rounded border border-slate-600 bg-cesped-claro px-3 py-2 text-sm text-pintura">
+                              <div className="font-semibold">
+                                {q.name} · {q.team}
+                              </div>
+                              <div className="mt-1 space-y-0.5 tabular-nums text-slate-200">
+                                <div>Pases después de 3.5 s: {f1(q.late_share)}%</div>
+                                <div>Tiempo mediano hasta lanzar: {f1(q.ttt_median)} s</div>
+                                <div>n = {n0(q.plays)} dropbacks</div>
+                              </div>
+                            </div>
+                          )
+                        }}
+                      />
+                      {league?.late_share !== undefined && (
+                        <ReferenceLine
+                          x={league.late_share}
+                          stroke={TG.text}
+                          strokeOpacity={0.8}
+                          strokeDasharray="4 4"
+                          label={{ value: `Liga ${f1(league.late_share)}%`, position: 'top', fill: TG.text, fontSize: 13 }}
+                        />
+                      )}
+                      <Bar dataKey="late_share" name="% de pases después de 3.5 s" isAnimationActive={false}>
+                        {qbRows.map((q) => (
+                          <Cell
+                            key={`${q.name}-${q.team}`}
+                            fill={league?.late_share !== undefined && q.late_share >= league.late_share ? TG.red : TG.neutral}
+                          />
+                        ))}
+                        <LabelList dataKey="tag" position="right" fill={TG.muted} fontSize={12} />
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                <p className="mt-2 text-sm text-slate-400">
+                  Barra: % de sus dropbacks que pasan de 3.5 s · a la derecha: % y tiempo mediano hasta lanzar. QB con al
+                  menos 150 dropbacks.
+                </p>
+              </>
+            )}
+          </div>
         </div>
       </section>
 
-      {/* TAB 1: TRENCH GRAVITY DEFENDERS */}
-      {subTab === 'defenders' && (
-        <div className="space-y-6">
-          <section className="rounded-2xl border border-slate-800 bg-slate-900/75 p-5">
-            <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h3 className="text-base font-bold text-white">
-                  Front-Office Scouting Radar: Double-Team Gravity vs. Teammate Pressure Created
-                </h3>
-                <p className="text-xs text-slate-400">
-                  Gold stars = <span className="font-semibold text-amber-300">&quot;Invisible Box-Score Superstars&quot;</span> (≤2 sacks, yet ≥40% double-team rate &amp; ≥34% teammate pressure). Traditional stats underpay them!
-                </p>
-              </div>
-              <span className="rounded-md bg-amber-500/15 px-2.5 py-1 text-[11px] font-bold text-amber-300">
-                4-Man Rush · Min 70 Snaps
-              </span>
-            </div>
-
-            <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <ScatterChart margin={{ top: 12, right: 20, left: 16, bottom: 14 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                  <XAxis
-                    type="number"
-                    dataKey="dt_rate"
-                    name="Double-Team Rate"
-                    unit="%"
-                    stroke="#94a3b8"
-                    fontSize={12}
-                    label={{ value: 'Double-Team Rate on 4-Man Rushes (%) →', position: 'insideBottom', offset: -8, fill: '#94a3b8', fontSize: 11 }}
-                  />
-                  <YAxis
-                    type="number"
-                    dataKey="tm_press_when_dt"
-                    name="Teammate Pressure"
-                    unit="%"
-                    stroke="#94a3b8"
-                    fontSize={12}
-                    label={{ value: 'Teammate Press % (w/ DT)', angle: -90, position: 'insideLeft', offset: 2, style: { textAnchor: 'middle', fill: '#94a3b8', fontSize: 11 } }}
-                  />
-                  <ZAxis type="number" dataKey="gravity_score" range={[55, 250]} name="Gravity Score" />
-                  <ReferenceLine x={40} stroke="#475569" strokeDasharray="4 4" />
-                  <ReferenceLine y={32} stroke="#475569" strokeDasharray="4 4" />
-                  <Tooltip
-                    cursor={{ strokeDasharray: '3 3', stroke: '#64748b' }}
-                    content={({ active, payload }) => {
-                      if (!active || !payload?.length) return null
-                      const p = payload[0].payload as GravityDefender
-                      return (
-                        <div className="rounded-xl border border-slate-700 bg-slate-950/95 p-3 text-xs shadow-xl">
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-white">{p.displayName}</span>
-                            <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] font-bold text-slate-300">
-                              {p.team} · {p.position}
-                            </span>
-                          </div>
-                          {p.invisible_star && (
-                            <div className="mt-1 text-[10px] font-bold uppercase text-amber-300">
-                              ★ Invisible Box-Score Star ({p.sacks} sacks, massive gravity!)
-                            </div>
-                          )}
-                          <div className="mt-1.5 space-y-0.5 tabular-nums text-slate-300">
-                            <div>Gravity Score: <span className="font-extrabold text-emerald-400">{p.gravity_score}</span></div>
-                            <div>Double-Team Rate: <span className="font-bold text-amber-300">{p.dt_rate}%</span> ({p.dt_snaps}/{p.snaps_4man})</div>
-                            <div>Teammate Press w/ DT: <span className="font-bold text-cyan-300">{p.tm_press_when_dt}%</span></div>
-                            <div>Self Pressure Rate: <span className="text-white">{p.self_press_rate}%</span> · Sacks: <span className="text-white">{p.sacks}</span></div>
-                          </div>
-                        </div>
-                      )
-                    }}
-                  />
-                  <Scatter data={filteredDefenders}>
-                    {filteredDefenders.map((d) => (
-                      <Cell
-                        key={d.nflId}
-                        fill={d.invisible_star ? '#f59e0b' : d.gravity_score >= 88 ? '#10b981' : '#38bdf8'}
-                        fillOpacity={0.85}
-                        stroke="#0f172a"
-                        strokeWidth={1.2}
-                      />
-                    ))}
-                  </Scatter>
-                </ScatterChart>
-              </ResponsiveContainer>
-            </div>
-          </section>
-
-          {/* Defenders Table */}
-          <section className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/75">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="border-b border-slate-800 bg-slate-950/70 text-[11px] uppercase tracking-wider text-slate-400">
-                  <tr>
-                    <th className="px-4 py-3">#</th>
-                    <th className="px-3 py-3">Player</th>
-                    <th className="px-3 py-3">Team</th>
-                    <th className="px-3 py-3 text-right">Gravity Score</th>
-                    <th className="px-3 py-3 text-right">Double-Team %</th>
-                    <th className="px-3 py-3 text-right">Teammate Press w/ DT</th>
-                    <th className="px-3 py-3 text-right">Self Press %</th>
-                    <th className="px-3 py-3 text-right">Sacks</th>
-                    <th className="px-4 py-3 text-right">4-Man Snaps</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/70 tabular-nums">
-                  {filteredDefenders.slice(0, 35).map((d, idx) => (
-                    <tr key={d.nflId} className="hover:bg-slate-800/40">
-                      <td className="px-4 py-2.5 text-slate-500">{idx + 1}</td>
-                      <td className="px-3 py-2.5">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-white">{d.displayName}</span>
-                          <span className="text-[11px] text-slate-400">{d.position}</span>
-                          {d.invisible_star && (
-                            <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-bold text-amber-300">
-                              ★ INVISIBLE STAR
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <button
-                          onClick={() => onSelectTeam(d.team)}
-                          className="rounded bg-slate-800 px-2 py-0.5 text-[11px] font-bold text-slate-200 hover:bg-emerald-500 hover:text-slate-950"
-                        >
-                          {d.team}
-                        </button>
-                      </td>
-                      <td className="px-3 py-2.5 text-right font-extrabold text-emerald-400">{d.gravity_score}</td>
-                      <td className="px-3 py-2.5 text-right font-semibold text-amber-300">{d.dt_rate}%</td>
-                      <td className="px-3 py-2.5 text-right font-semibold text-cyan-300">{d.tm_press_when_dt}%</td>
-                      <td className="px-3 py-2.5 text-right text-slate-200">{d.self_press_rate}%</td>
-                      <td className="px-3 py-2.5 text-right font-bold text-white">{d.sacks}</td>
-                      <td className="px-4 py-2.5 text-right text-slate-400">{d.snaps_4man}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
+      {/* ------------------------------------------------------------------ */}
+      {/* 3. OFFENSIVE LINE LEADERBOARD                                       */}
+      {/* ------------------------------------------------------------------ */}
+      <section className="space-y-5 border-t border-slate-800 pt-10">
+        <div className="max-w-[70ch] space-y-2">
+          <h2 className="text-[28px] leading-tight text-pintura">Los linieros que mantienen limpio el pocket</h2>
+          <p className="text-base text-slate-300">
+            Puntaje = 70% × % de bloqueos sin permitir presión + 30% × % sin ser vencido. Mínimo 150 bloqueos de pase.
+            Ranking descriptivo de 8 semanas.
+          </p>
         </div>
-      )}
 
-      {/* TAB 2: IRON-WALL OFFENSIVE LINEMEN */}
-      {subTab === 'linemen' && (
-        <section className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/75">
-          <div className="border-b border-slate-800 p-4">
-            <h3 className="text-base font-bold text-white">Iron-Wall Offensive Linemen (Min 150 Pass-Block Snaps)</h3>
-            <p className="text-xs text-slate-400">
-              Ranked by composite Iron Wall Score (70% Clean-Pocket Rate + 30% Unbeaten Rate) — the blockers who neutralize Trench Gravity 1-on-1.
-            </p>
+        <div className="overflow-hidden rounded-lg border border-slate-800">
+          <div className="flex flex-col gap-3 border-b border-slate-800 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <Pills options={['Todos', 'T', 'G', 'C'] as const} value={olPos} onChange={setOlPos} labels={OL_LABEL} />
+            <SearchBox value={qOl} onChange={setQOl} placeholder="Busca liniero o equipo" />
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="border-b border-slate-800 bg-slate-950/70 text-[11px] uppercase tracking-wider text-slate-400">
+            <table className="w-full text-left text-sm">
+              <thead className="text-slate-400">
                 <tr>
-                  <th className="px-4 py-3">#</th>
-                  <th className="px-3 py-3">Lineman</th>
-                  <th className="px-3 py-3">Lane / Pos</th>
-                  <th className="px-3 py-3">Team</th>
-                  <th className="px-3 py-3 text-right">Iron Score</th>
-                  <th className="px-3 py-3 text-right">Clean Rate %</th>
-                  <th className="px-3 py-3 text-right">Beaten %</th>
-                  <th className="px-3 py-3 text-right">Press Allowed</th>
-                  <th className="px-3 py-3 text-right">Sacks Allowed</th>
-                  <th className="px-4 py-3 text-right">Snaps</th>
+                  <th className="px-4 py-2.5 font-medium">#</th>
+                  <th className="px-3 py-2.5 font-medium">Liniero</th>
+                  <th className="px-3 py-2.5 font-medium">Carril</th>
+                  <th className="px-3 py-2.5 font-medium">Equipo</th>
+                  <th className="px-3 py-2.5 text-right font-medium">Puntaje</th>
+                  <th className="px-3 py-2.5 text-right font-medium">% sin presión</th>
+                  <th className="px-3 py-2.5 text-right font-medium">% vencido</th>
+                  <th className="px-3 py-2.5 text-right font-medium">Presiones permitidas</th>
+                  <th className="px-3 py-2.5 text-right font-medium">Sacks permitidos</th>
+                  <th className="px-4 py-2.5 text-right font-medium">Bloqueos</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/70 tabular-nums">
-                {filteredLinemen.slice(0, 40).map((l, idx) => (
-                  <tr key={l.nflId} className="hover:bg-slate-800/40">
-                    <td className="px-4 py-2.5 text-slate-500">{idx + 1}</td>
-                    <td className="px-3 py-2.5 font-bold text-white">{l.displayName}</td>
-                    <td className="px-3 py-2.5 text-cyan-300 font-semibold">{l.lane} ({l.position})</td>
-                    <td className="px-3 py-2.5">
-                      <button
-                        onClick={() => onSelectTeam(l.team)}
-                        className="rounded bg-slate-800 px-2 py-0.5 text-[11px] font-bold text-slate-200 hover:bg-emerald-500 hover:text-slate-950"
-                      >
-                        {l.team}
-                      </button>
+              <tbody className="tabular-nums">
+                {filteredLinemen.slice(0, 40).map((l, idx) => {
+                  const small = l.snaps < SMALL_N
+                  return (
+                    <tr key={l.nflId} className={`border-t border-slate-800/70 hover:bg-slate-900 ${small ? 'text-slate-500' : 'text-slate-200'}`}>
+                      <td className="px-4 py-2 text-slate-400">{idx + 1}</td>
+                      <td className="px-3 py-2 font-semibold text-pintura">{l.displayName}</td>
+                      <td className="px-3 py-2 text-slate-300">
+                        {LANE_LABEL[l.lane] ?? l.lane} <span className="text-slate-400">({l.position})</span>
+                      </td>
+                      <td className="px-3 py-2">
+                        <TeamButton team={l.team} onSelectTeam={onSelectTeam} />
+                      </td>
+                      <td className="px-3 py-2 text-right font-semibold text-pintura">{f1(l.iron_score)}</td>
+                      <td className="px-3 py-2 text-right">{f1(l.clean_rate)}%</td>
+                      <td className="px-3 py-2 text-right">{f1(l.beaten_rate)}%</td>
+                      <td className="px-3 py-2 text-right">{n0(l.pressures_allowed)}</td>
+                      <td className="px-3 py-2 text-right">{n0(l.sacks_allowed)}</td>
+                      <td className="px-4 py-2 text-right text-slate-400">{n0(l.snaps)}</td>
+                    </tr>
+                  )
+                })}
+                {filteredLinemen.length === 0 && (
+                  <tr>
+                    <td colSpan={10} className="px-4 py-6 text-center text-slate-400">
+                      Ningún liniero coincide con el filtro.
                     </td>
-                    <td className="px-3 py-2.5 text-right font-extrabold text-emerald-400">{l.iron_score}</td>
-                    <td className="px-3 py-2.5 text-right font-semibold text-white">{l.clean_rate}%</td>
-                    <td className="px-3 py-2.5 text-right text-amber-300">{l.beaten_rate}%</td>
-                    <td className="px-3 py-2.5 text-right text-slate-300">{l.pressures_allowed}</td>
-                    <td className="px-3 py-2.5 text-right font-bold text-slate-100">{l.sacks_allowed}</td>
-                    <td className="px-4 py-2.5 text-right text-slate-400">{l.snaps}</td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
           </div>
-        </section>
-      )}
-
-      {/* TAB 3: QB POISE UNDER COLLAPSE */}
-      {subTab === 'qbs' && (
-        <div className="space-y-6">
-          <section className="rounded-2xl border border-slate-800 bg-slate-900/75 p-5">
-            <h3 className="text-base font-bold text-white">QB Poise Under Pocket Collapse: Clean vs. Pressured Yards/Play</h3>
-            <p className="text-xs text-slate-400">
-              Top 14 QBs ranked by Poise Score (minimum 45 pressured dropbacks). Shows who keeps producing when the pocket shrinks.
-            </p>
-            <div className="mt-4 h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={filteredQbs.slice(0, 14)} margin={{ top: 8, right: 12, left: -10, bottom: 52 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                  <XAxis
-                    dataKey="displayName"
-                    stroke="#94a3b8"
-                    fontSize={10}
-                    angle={-28}
-                    textAnchor="end"
-                    interval={0}
-                  />
-                  <YAxis stroke="#94a3b8" fontSize={12} unit=" yds" />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: 10, fontSize: 12 }}
-                  />
-                  <Legend verticalAlign="top" wrapperStyle={{ fontSize: 11, paddingBottom: 8 }} />
-                  <Bar dataKey="clean_yds" name="Clean Pocket Yds/Play" fill="#10b981" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="press_yds" name="Under Pressure Yds/Play" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </section>
-
-          <section className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/75">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="border-b border-slate-800 bg-slate-950/70 text-[11px] uppercase tracking-wider text-slate-400">
-                  <tr>
-                    <th className="px-4 py-3">#</th>
-                    <th className="px-3 py-3">Quarterback</th>
-                    <th className="px-3 py-3">Team</th>
-                    <th className="px-3 py-3 text-right">Poise Score</th>
-                    <th className="px-3 py-3 text-right">Pressured Yds</th>
-                    <th className="px-3 py-3 text-right">Clean Yds</th>
-                    <th className="px-3 py-3 text-right">Press Comp %</th>
-                    <th className="px-3 py-3 text-right">Press→Sack %</th>
-                    <th className="px-4 py-3 text-right">Press Faced %</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/70 tabular-nums">
-                  {filteredQbs.map((qb, idx) => (
-                    <tr key={qb.nflId} className="hover:bg-slate-800/40">
-                      <td className="px-4 py-2.5 text-slate-500">{idx + 1}</td>
-                      <td className="px-3 py-2.5 font-bold text-white">{qb.displayName}</td>
-                      <td className="px-3 py-2.5">
-                        <button
-                          onClick={() => onSelectTeam(qb.team)}
-                          className="rounded bg-slate-800 px-2 py-0.5 text-[11px] font-bold text-slate-200 hover:bg-emerald-500 hover:text-slate-950"
-                        >
-                          {qb.team}
-                        </button>
-                      </td>
-                      <td className="px-3 py-2.5 text-right font-extrabold text-emerald-400">{qb.poise_score}</td>
-                      <td className="px-3 py-2.5 text-right font-bold text-amber-300">{qb.press_yds}</td>
-                      <td className="px-3 py-2.5 text-right text-slate-300">{qb.clean_yds}</td>
-                      <td className="px-3 py-2.5 text-right text-cyan-300">{qb.press_comp}%</td>
-                      <td className="px-3 py-2.5 text-right text-rose-400">{qb.press_sack_rate}%</td>
-                      <td className="px-4 py-2.5 text-right text-slate-400">{qb.pressure_faced_rate}%</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
         </div>
-      )}
+      </section>
     </div>
   )
 }

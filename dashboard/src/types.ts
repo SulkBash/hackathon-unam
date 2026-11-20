@@ -180,10 +180,180 @@ export interface QbPoiseRow {
   poise_score: number;
 }
 
+/** /api/players (PLAN 2.4): get-off leaderboard, always ranked WITHIN group (Edge = DE·OLB, Interior = DT·NT). */
+export type RushGroup = 'Edge' | 'Interior';
+
+export interface GetoffLeader {
+  nflId?: number;
+  name: string;
+  team: string;
+  position: string;
+  group: RushGroup;
+  snaps: number;
+  getoff_avg: number;
+  strain_avg: number;
+  pressure_rate: number;
+  sacks: number;
+  getoff_score: number;
+}
+
 export interface PlayersData {
-  defenders: GravityDefender[];
+  getoff_leaders?: GetoffLeader[];
   linemen: IronLineman[];
-  qbs: QbPoiseRow[];
+  /** Legacy v1 fields (gravity / poise). Not rendered anymore. */
+  defenders?: GravityDefender[];
+  qbs?: unknown;
+}
+
+// ---------------------------------------------------------------------------
+// /api/guerra (PLAN 2.2). Every number shown in "El Reloj" comes from here.
+// ---------------------------------------------------------------------------
+export interface GuerraHeadline {
+  plays: number;
+  games: number;
+  rusher_snaps: number;
+  clean_comp: number;
+  pressured_comp: number;
+  clean_success: number;
+  pressured_success: number;
+}
+
+export interface CliffBucket {
+  bucket: string;
+  plays: number;
+  pressure: number;
+  sack: number;
+  success: number;
+  big: number;
+}
+
+export interface GetoffWithinRow {
+  delta: number;
+  label: string;
+  snaps: number;
+  pressure: number;
+}
+
+export interface GetoffSituationRow {
+  situation: string;
+  faster: number;
+  slower: number;
+}
+
+export interface GuerraGetoff {
+  within_player: GetoffWithinRow[];
+  pp_per_tenth: number;
+  base_rate: number;
+  by_situation: GetoffSituationRow[];
+  stability: number;
+}
+
+export interface GuerraPlayAction {
+  pa_rate: number;
+  getoff_no_pa: number;
+  getoff_pa: number;
+  getoff_delta_adj: number;
+  ttt_no_pa: number;
+  ttt_pa: number;
+  success_pa: number;
+  success_expected: number;
+  big_pa: number;
+  big_expected: number;
+  pressure_pa: number;
+  pressure_expected: number;
+  sack_pa: number;
+  sack_expected: number;
+  rollout_sack: number;
+  pocket_sack: number;
+  rollout_pa_share: number;
+  pa_rollout_sack: number;
+  pa_rollout_n: number;
+  pa_no_rollout_sack: number;
+}
+
+export interface BlitzOverallRow {
+  label: string;
+  plays: number;
+  pressure: number;
+  success: number;
+}
+
+export interface BlitzSituationAdj {
+  situation: string;
+  adj_delta: number;
+  blitz_share?: number;
+  metric?: string;
+  plays?: number;
+}
+
+export interface ThirdLongPlan {
+  plan: string;
+  plays: number;
+  adj_delta: number;
+  sack?: number;
+}
+
+export interface GuerraBlitz {
+  overall: BlitzOverallRow[];
+  by_situation: BlitzSituationAdj[];
+  third_long_sacks: { rush4: number; blitz: number };
+  flip: { early: number; third_long: number; diff: number; z: number };
+  third_long_plans: {
+    base: { plan: string; plays: number; conversion: number; sack?: number };
+    vs_base: ThirdLongPlan[];
+  };
+}
+
+export interface RushPlanRow {
+  plan: string;
+  plays: number;
+  pressure: number;
+  sack: number;
+  success: number;
+  adj_delta: number;
+}
+
+export interface ProtectionRow {
+  label: string;
+  reps: number;
+  lost: number;
+}
+
+export interface GuerraData {
+  headline: GuerraHeadline;
+  cliff: CliffBucket[];
+  getoff: GuerraGetoff;
+  play_action: GuerraPlayAction;
+  blitz: GuerraBlitz;
+  rush_plans: RushPlanRow[];
+  protection: ProtectionRow[];
+}
+
+// ---------------------------------------------------------------------------
+// /api/qb-clocks (PLAN 2.3). Ranked by late_share (stable trait), never by per-QB drop (noise).
+// ---------------------------------------------------------------------------
+export interface QbClockRow {
+  nflId?: number;
+  name: string;
+  team: string;
+  plays: number;
+  ttt_median: number;
+  late_share: number;
+}
+
+export interface QbClocksLeague {
+  late_share: number;
+  success_early: number;
+  success_late: number;
+  drop: number;
+  ttt_median?: number;
+}
+
+export interface QbClocksData {
+  league: QbClocksLeague;
+  qbs: QbClockRow[];
+  /** Optional split-half (weeks 1-4 vs 5-8) correlations, if the backend provides them. Never hard-code. */
+  stability?: { late_share?: number; ttt_median?: number };
 }
 
 export interface PlaySummary {
@@ -205,14 +375,18 @@ export interface PlaySummary {
   coverage: string;
   n_rushers: number;
   n_blockers: number;
-  n_dt_rushers: number;
-  n_free_rushers: number;
+  n_dt_rushers?: number;
+  n_free_rushers?: number;
   has_stunt: boolean;
   is_play_action: boolean;
   had_pressure: boolean;
   description: string;
   tag: string;
   headline: string;
+  /** PLAN 2.6: seconds from snap to the end of the dropback (pass_forward / sack / run...). */
+  ttt?: number | null;
+  /** PLAN 2.6: event that ended the dropback (pass_forward, qb_sack, qb_strip_sack, run, fumble...). */
+  endEvent?: string | null;
 }
 
 export interface TeamOlLane {
@@ -239,6 +413,19 @@ export interface TeamRusher {
   tm_press_when_dt: number;
 }
 
+/** PLAN 2.5: the team's main QB clock (late_share = % of dropbacks > 3.5 s). No per-QB early/late success (noise). */
+export interface TeamQbClock {
+  qb?: string;
+  name?: string;
+  plays?: number;
+  late_share: number;
+  ttt_median: number;
+  league_late_share?: number;
+  league_ttt_median?: number;
+  league_drop?: number;
+  league?: Partial<QbClocksLeague>;
+}
+
 export interface TeamGameplan {
   team: string;
   teamName: string;
@@ -249,10 +436,10 @@ export interface TeamGameplan {
     comp_rate: number;
     avg_yards: number;
     play_action_rate: number;
-    play_action_yds: number;
-    straight_dropback_yds: number;
+    play_action_yds?: number;
+    straight_dropback_yds?: number;
     rollout_rate: number;
-    stunt_pressure_allowed_rate: number;
+    stunt_pressure_allowed_rate?: number;
     ol_heatmap: TeamOlLane[];
     weakest_lane: TeamOlLane;
   };
@@ -262,13 +449,18 @@ export interface TeamGameplan {
     press_rate_4man: number;
     blitz_rate: number;
     stunt_rate: number;
-    stunt_pressure_rate: number;
-    blitz_pressure_rate: number;
-    third_long_blitz_sack_rate: number;
+    stunt_pressure_rate?: number;
+    blitz_pressure_rate?: number;
+    third_long_blitz_sack_rate?: number;
     sack_rate: number;
     avg_yards_allowed: number;
     top_rushers: TeamRusher[];
   };
+  /** PLAN 2.5 additions */
+  qb_clock?: TeamQbClock | null;
+  def_getoff_avg?: number | null;
+  league_getoff_avg?: number | null;
+  pa_rate?: number | null;
   attack_this_oline: string[];
   beat_this_defense: string[];
   featured_plays: PlaySummary[];
@@ -290,7 +482,10 @@ export interface PlayRosterMeta {
   beaten: boolean;
   blockersAssigned: number;
   isDoubleTeamed: boolean;
-  isFreeRusher: boolean;
+  /** Legacy v1 (removed claim: "free rusher" is a PFF first-block artifact). Never render. */
+  isFreeRusher?: boolean;
+  /** PLAN 2.6: seconds from snap until this rusher moved 1 yard (null if not a rusher / no data). */
+  getoff?: number | null;
 }
 
 export interface MatchupEdge {
@@ -350,7 +545,8 @@ export interface PlayTrackingData {
     peakCollapseVel: number;
     durationSec: number;
     doubleTeamedRushers: string[];
-    freeRushers: string[];
+    /** Legacy v1 (removed claim). Never render. */
+    freeRushers?: string[];
     pressureMakers: string[];
     coachingNotes: string[];
   };

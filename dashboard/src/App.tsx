@@ -1,88 +1,112 @@
 import { useEffect, useState } from 'react'
 import ExecutivePlaybook from './components/ExecutivePlaybook'
+import Glossary from './components/Glossary'
 import PlayersLabView from './components/PlayersLabView'
 import TeamGameplanView from './components/TeamGameplanView'
 import TrenchFilmRoom from './components/TrenchFilmRoom'
-import type { OverviewData, PlayersData, PlaySummary } from './types'
+import type { GuerraData, OverviewData, PlayersData, PlaySummary, QbClocksData } from './types'
 
-type TabId = 'playbook' | 'gameplan' | 'players' | 'film'
+type TabId = 'reloj' | 'plan' | 'jugadores' | 'video' | 'glosario'
+
+const TABS: [TabId, string][] = [
+  ['reloj', '1. El Reloj'],
+  ['plan', '2. Plan de Juego (32 equipos)'],
+  ['jugadores', '3. Laboratorio de Jugadores'],
+  ['video', '4. Sala de Video 10 Hz'],
+  ['glosario', 'Cómo leer esto'],
+]
+
+// Jugada real del hero (identificadores, no estadísticas): DAL @ TB, semana 1 de 2021. Ver campo/jugadaDemo.ts.
+const DEMO_PLAY = { gameId: 2021090900, playId: 2279 }
+
+/** Carga una ruta relativa de la API (sin diagonal inicial) y reporta el error en español. */
+function useApi<T>(path: string): { data: T | null; error: string | null } {
+  const [data, setData] = useState<T | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  useEffect(() => {
+    let alive = true
+    fetch(path)
+      .then((r) => {
+        if (!r.ok) throw new Error(`${path} respondió ${r.status}`)
+        return r.json() as Promise<T>
+      })
+      .then((d) => alive && setData(d))
+      .catch((e: unknown) => alive && setError(e instanceof Error ? e.message : String(e)))
+    return () => {
+      alive = false
+    }
+  }, [path])
+  return { data, error }
+}
+
+function Pendiente({ error, que }: { error: string | null; que: string }) {
+  if (error) {
+    return (
+      <div className="border-t border-slate-800 pt-10">
+        <h2 className="text-[28px] text-pintura">No se pudo cargar {que}</h2>
+        <p className="mt-2 text-[15px] text-slate-400">{error}</p>
+      </div>
+    )
+  }
+  return (
+    <div className="space-y-6 pt-6">
+      <div className="tg-skeleton h-12 w-1/2" />
+      <div className="tg-skeleton h-[320px] w-full" />
+      <div className="tg-skeleton h-40 w-full" />
+    </div>
+  )
+}
+
+function tabFromHash(): TabId {
+  const h = window.location.hash.replace('#', '')
+  return (TABS.find(([id]) => id === h)?.[0] ?? 'reloj') as TabId
+}
 
 export default function App() {
-  const [tab, setTab] = useState<TabId>('playbook')
-  const [overview, setOverview] = useState<OverviewData | null>(null)
-  const [players, setPlayers] = useState<PlayersData | null>(null)
-  const [selectedTeam, setSelectedTeam] = useState('MIN')
-  const [selectedPlay, setSelectedPlay] = useState<{ gameId: number; playId: number } | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [tab, setTab] = useState<TabId>(tabFromHash)
 
   useEffect(() => {
-    Promise.all([
-      fetch('api/overview').then((r) => {
-        if (!r.ok) throw new Error(`Overview API ${r.status}`)
-        return r.json() as Promise<OverviewData>
-      }),
-      fetch('api/players').then((r) => {
-        if (!r.ok) throw new Error(`Players API ${r.status}`)
-        return r.json() as Promise<PlayersData>
-      }),
-    ])
-      .then(([ov, pl]) => {
-        setOverview(ov)
-        setPlayers(pl)
-      })
-      .catch((err) => setError(String(err)))
+    const onHash = () => setTab(tabFromHash())
+    window.addEventListener('hashchange', onHash)
+    return () => window.removeEventListener('hashchange', onHash)
   }, [])
+  const [selectedTeam, setSelectedTeam] = useState('MIN')
+  const [selectedPlay, setSelectedPlay] = useState<{ gameId: number; playId: number } | null>(null)
+
+  const overview = useApi<OverviewData>('api/overview')
+  const players = useApi<PlayersData>('api/players')
+  const guerra = useApi<GuerraData>('api/guerra')
+  const qbClocks = useApi<QbClocksData>('api/qb-clocks')
+  const teams = overview.data?.team_matrix ?? []
+
+  function goTo(next: TabId) {
+    setTab(next)
+    // Hash relativo (sin diagonal inicial): funciona en la subruta de AWS y permite enlazar cada pestaña
+    if (window.location.hash !== `#${next}`) window.history.replaceState(null, '', `#${next}`)
+    window.scrollTo({ top: 0 })
+  }
 
   function handleSelectTeam(team: string) {
     setSelectedTeam(team)
-    setTab('gameplan')
+    goTo('plan')
   }
 
   function handleWatchPlay(play: PlaySummary) {
     setSelectedPlay({ gameId: play.gameId, playId: play.playId })
-    setTab('film')
+    goTo('video')
   }
 
   return (
-    <div className="min-h-screen bg-[#060a13] text-slate-100">
-      {/* Top Broadcast War-Room Header */}
-      <header className="sticky top-0 z-30 border-b border-slate-800/90 bg-[#060a13]/95 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-cyan-500 text-sm font-black text-slate-950 shadow-lg shadow-emerald-500/20">
-              TG
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-base font-extrabold tracking-tight text-white">TRENCH GRAVITY</h1>
-                <span className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-300">
-                  NFL Big Data Bowl · UNAM
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-400">
-                The Double-Team Paradox &amp; 10Hz Pass-Rush Physics for NFL Coaches
-              </p>
-            </div>
+    <div className="min-h-screen bg-slate-950 text-pintura">
+      <header className="sticky top-0 z-30 border-b border-slate-800 bg-slate-950/95 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl flex-col gap-x-10 px-5 2xl:flex-row 2xl:items-end 2xl:justify-between">
+          <div className="pt-4 2xl:pb-4">
+            <h1 className="text-[22px] leading-tight text-pintura">La Guerra de los 3.5 Segundos</h1>
+            <p className="text-[14px] text-slate-400">Cómo ganar (o robar) décimas de segundo en cada pase. NFL 2021, semanas 1–8.</p>
           </div>
-
-          <nav className="flex flex-wrap gap-1.5">
-            {(
-              [
-                ['playbook', '1. Executive Playbook'],
-                ['gameplan', '2. 32-Team Gameplan'],
-                ['players', '3. Gravity & Poise Lab'],
-                ['film', '4. 10Hz Trench Film Room'],
-              ] as [TabId, string][]
-            ).map(([id, label]) => (
-              <button
-                key={id}
-                onClick={() => setTab(id)}
-                className={`rounded-xl px-3 py-1.5 text-xs font-bold transition ${
-                  tab === id
-                    ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20'
-                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                }`}
-              >
+          <nav role="tablist" aria-label="Secciones" className="-mb-px flex flex-wrap gap-x-7 overflow-x-auto">
+            {TABS.map(([id, label]) => (
+              <button key={id} type="button" role="tab" aria-selected={tab === id} className="tg-tab whitespace-nowrap" onClick={() => goTo(id)}>
                 {label}
               </button>
             ))}
@@ -90,45 +114,46 @@ export default function App() {
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="mx-auto max-w-7xl px-4 py-6">
-        {error ? (
-          <div className="rounded-2xl border border-rose-500/40 bg-rose-950/30 p-6 text-sm text-rose-200">
-            <div className="font-bold">Could not load analytics API</div>
-            <p className="mt-1 text-xs text-rose-300">{error}</p>
-          </div>
-        ) : !overview || !players ? (
-          <div className="flex h-72 flex-col items-center justify-center gap-3 rounded-2xl border border-slate-800 bg-slate-900/50">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-emerald-400 border-t-transparent" />
-            <div className="text-sm font-semibold text-slate-300">
-              Analyzing 8,557 NFL pass plays &amp; 188,254 PFF trench matchups...
-            </div>
-          </div>
-        ) : (
-          <>
-            {tab === 'playbook' && (
-              <ExecutivePlaybook
-                data={overview}
-                onSelectTeam={handleSelectTeam}
-                onOpenFilmRoom={() => setTab('film')}
-              />
-            )}
-            {tab === 'gameplan' && (
-              <TeamGameplanView
-                selectedTeam={selectedTeam}
-                teams={overview.team_matrix}
-                onSelectTeam={setSelectedTeam}
-                onWatchPlay={handleWatchPlay}
-              />
-            )}
-            {tab === 'players' && <PlayersLabView data={players} onSelectTeam={handleSelectTeam} />}
-            {tab === 'film' && <TrenchFilmRoom initialPlay={selectedPlay} teams={overview.team_matrix} />}
-          </>
-        )}
+      <main className="mx-auto max-w-7xl px-5 py-8">
+        <div key={tab} className="tg-enter">
+          {tab === 'reloj' && (
+            <ExecutivePlaybook
+              data={guerra.data}
+              error={guerra.error}
+              teams={teams}
+              qbClocks={qbClocks.data}
+              onSelectTeam={handleSelectTeam}
+              onWatchDemo={() => {
+                setSelectedPlay(DEMO_PLAY)
+                goTo('video')
+              }}
+            />
+          )}
+          {tab === 'plan' && (
+            <TeamGameplanView
+              selectedTeam={selectedTeam}
+              teams={teams}
+              onSelectTeam={setSelectedTeam}
+              onWatchPlay={handleWatchPlay}
+              qbClocks={qbClocks.data}
+            />
+          )}
+          {tab === 'jugadores' &&
+            (players.data ? (
+              <PlayersLabView data={players.data} qbClocks={qbClocks.data} guerra={guerra.data} onSelectTeam={handleSelectTeam} />
+            ) : (
+              <Pendiente error={players.error} que="el laboratorio de jugadores" />
+            ))}
+          {tab === 'video' && <TrenchFilmRoom initialPlay={selectedPlay} teams={teams} />}
+          {tab === 'glosario' && <Glossary />}
+        </div>
       </main>
 
-      <footer className="border-t border-slate-900 py-4 text-center text-[11px] text-slate-500">
-        Trench Gravity · NFL 2021 Weeks 1–8 Tracking &amp; PFF Scouting Analytics · Built for UNAM NFL Big Data Bowl 2026
+      <footer className="border-t border-slate-800 py-6">
+        <div className="mx-auto max-w-7xl px-5 text-[13px] text-slate-400">
+          La Guerra de los 3.5 Segundos. Datos del NFL Big Data Bowl: temporada 2021, semanas 1–8, tracking a 10 Hz y scouting de
+          PFF. Hackathon UNAM.
+        </div>
       </footer>
     </div>
   )
