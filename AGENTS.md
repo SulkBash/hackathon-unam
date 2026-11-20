@@ -20,10 +20,85 @@ En el navegador abre siempre `http://localhost:...`, no `127.0.0.1`.
 ## Mapa del repositorio
 
 - `backend/main.py`: la app FastAPI (`app`), `GET /health`, endpoints bajo `/api/...` y el cargador de `.env`.
+- `backend/analytics.py`: motor de análisis (`TrenchAnalytics`): carga CSVs al arrancar y calcula todos los agregados en memoria.
+- `backend/bedrock_coach.py`: resumen opcional con Amazon Nova + respaldo determinista (la app funciona sin IA).
+- `backend/pipeline/build_tracking_features.py`: script reproducible que recorre los 122 archivos de tracking (811 MB, ~1–2 min) y genera `backend/precomputed/`. Se corre a mano: `.\.venv\Scripts\python -m backend.pipeline.build_tracking_features`.
+- `backend/precomputed/`: `tracking_plays.csv` (ttt, endEvent por jugada) y `tracking_rushers.csv` (getoff, s05, strain, dmin, t2 por rusher y jugada). Solo lectura en tiempo de ejecución; se versionan.
 - `dashboard/`: React + Vite + TS + Tailwind 3 + Recharts. `vite.config.ts` ya tiene `base: './'` y el proxy de `/api`.
-- `data/`: datos del evento, **solo lectura**: `games.csv`, `plays.csv`, `players.csv`, `pffScoutingData.csv`. Están en `.gitignore` (no se versionan), así que muchas herramientas de búsqueda no los listan: ábrelos directamente por su ruta. El zip de `--entregar` sí los incluye.
+- `data/`: datos del evento, **solo lectura**: `games.csv`, `plays.csv`, `players.csv`, `pffScoutingData.csv`, `tracking/tracking_<gameId>.csv` (122 juegos, 10 Hz, del snap al final del dropback + ~0.5 s). Están en `.gitignore` (no se versionan), así que muchas herramientas de búsqueda no los listan: ábrelos directamente por su ruta. El zip de `--entregar` sí los incluye.
+- `docs/`: capturas que usa el README.
+- `PLAN.md` (temporal, si existe): plan de implementación por etapas con contrato de API. **Se borra antes de `--entregar`.**
 - `README.md`: lo primero que leen los jueces (hallazgo principal, audiencia, captura).
 - `.hackathon/`, `.kiro/`, `.venv/`: no se mueven ni se modifican.
+
+---
+
+# Contexto del equipo: objetivo y estándar de evidencia
+
+## Objetivo
+
+**Ganar el hackathon.** El equipo no tiene experiencia en NFL; el producto debe convencer a jueces que quizá tampoco la tengan, y resistir a un juez que sí sepa estadística o fútbol americano. Un solo dato falso o inflado le cuesta credibilidad a todo lo demás, así que **cada número que se muestre debe estar verificado con los datos**.
+
+**Tesis: "La Guerra de los 3.5 Segundos".** Cada pase es una carrera entre dos relojes: el del quarterback y el de los pass rushers. Cada hallazgo es una forma de ganar (ofensiva) o robar (defensiva) décimas de segundo, traducida a resultados.
+
+**Audiencia:** coordinadores defensivos y ofensivos, y jugadores. Todo texto visible (dashboard y README) va **en español**, con un glosario "Cómo leer esto" para quien no conoce la NFL. Los identificadores de código quedan en inglés.
+
+## Estándar de evidencia (obligatorio antes de mostrar cualquier afirmación)
+
+1. **Ningún número escrito a mano en la UI ni en el README**: todo sale de código que calcula sobre `data/` o `backend/precomputed/` (vía la API). Si un número del README cambia, se vuelve a correr el cálculo.
+2. **Compara lo comparable.** Antes de afirmar un efecto, controla los confusores obvios:
+   - **Situación:** compara a la misma `yardsToGo` exacta dentro del mismo down (no por rangos amplios). Ejemplo real: el blitz en 3ro y 7+ parecía dar +10 pts de conversiones; a la misma distancia son +4.2.
+   - **Tiempo de lanzamiento:** muchas cosas "pasan" en jugadas largas solo porque son largas. Compara dentro de la misma franja de `ttt`.
+   - **Jugador:** para métricas de jugador, compara al jugador contra su propio promedio (efectos fijos), no entre jugadores.
+   - **Equipo:** un "efecto de jugador" puede ser del equipo (ej. dos jugadores de BUF arriba en un ranking).
+3. **Estabilidad:** una métrica de jugador o equipo solo se muestra si se repite entre semanas 1–4 y 5–8 (correlación entre mitades). Referencia: get-off 0.79 (sí), presión propia 0.39 (sí), "gravity" −0.12 (no), vulnerabilidad de equipo a stunts 0.15 (no).
+4. **Busca artefactos de definición:** si el resultado sale "100%" o "siempre", probablemente es aritmético. PFF solo registra el **primer** defensor que bloquea cada bloqueador (`pff_nflIdBlockedPlayer`), así que en stunts aparecen "dobles" y "rusher libre" falsos.
+5. **Muestra el tamaño de muestra** (`n`) y marca en gris lo que tenga n < 50.
+6. **Reporta el número ajustado, no el crudo**, cuando difieran.
+7. **Etiqueta la confianza:** 🟢 robusto / 🟡 moderado. Lo que no pase estos filtros va a **"Lo que descartamos"** (los jueces valoran ver hipótesis rechazadas).
+
+## Definiciones (úsalas exactamente)
+
+- **Presión (jugada):** algún rusher con `pff_hit|pff_hurry|pff_sack == 1`. **Presión (rusher):** lo mismo por fila.
+- **Éxito:** 1er down `playResult >= 0.4*yardsToGo`; 2do `>= 0.6*yardsToGo`; 3ro/4to `>= yardsToGo`. **Conversión:** `playResult >= yardsToGo`. **Jugada grande:** `prePenaltyPlayResult >= 20`.
+- **% de pases completos:** C / (C + I + IN). Nunca contar sacks ni scrambles como incompletos.
+- **Blitz:** 5+ rushers. **Stunt:** la jugada tiene algún `pff_blockType == "SW"`.
+- **Duelo perdido (bloqueador):** hitAllowed, hurryAllowed, sackAllowed o beatenByDefender == 1.
+- **ttt (tiempo de lanzamiento):** del snap a pass_forward / qb_sack / qb_strip_sack / run / fumble.
+- **Get-off:** segundos tras el snap hasta que el rusher se movió 1 yarda. Comparar **dentro del grupo**: Edge = DE·OLB (~0.75 s), Interior = DT·NT (~0.83 s).
+- Las etiquetas de `pff_blockType` siguen `README_DATA.md` (PU = recogida del RB, UP = jalón, CL = segundo nivel, SR = set & release, etc.).
+
+## Hallazgos verificados (NFL 2021, semanas 1–8, 8,557 dropbacks, 36,263 snaps de rusher con tracking)
+
+| Hallazgo | Evidencia | Confianza |
+|---|---|---|
+| La presión decide la jugada | Éxito 57.2% → 34.4%; completos 67.8% → 46.6% | 🟢 |
+| El precipicio de 3.5 s | Sacks: 5.1% (3.0–3.5 s) → 13.2% (3.5–4 s) → 23.4% (4–5 s). Jugadas grandes máximas en 3.0–3.5 s (14.8%) | 🟢 |
+| El get-off gana | Mismo jugador: 0.3 s antes que su mediana → 21.3% de presión; 0.3 s después → 7.4%. ~0.9 pts por cada 0.1 s sobre una base de 11.0%. Se sostiene en 3ro y 7+ y en el resto. Estabilidad 0.79 | 🟢 |
+| El play action congela a los rushers | Get-off 0.75 → 0.89 s; ttt mediano 2.7 → 3.3 s; misma presión (36.9% vs 37.8%); éxito 47.0% → 54.4%; jugadas grandes 7.9% → 13.5%; se usa en solo 23.8% de los pases. Rollouts diseñados: 2.5% sacks vs 6.7% (84% son play action) | 🟢 |
+| El blitz depende del down | A la misma `yardsToGo`: 1ro/2do −2.4 pts de éxito rival; 3ro/4to y 1–3 −5.4; 4–6 −1.6; 3ro/4to y 7+ **+4.2** conversiones (z≈1.7), con más sacks (9.1% → 15.2%). Se usa más justo en 3ro y largo (30% vs 22%) | 🟡 |
+| Rush de 4 con stunt ≈ blitz sin mandar más gente | Ajustado por down y distancia: −2.4 pts (IC 95% −4.8 a −0.1) vs −2.9 del blitz sin stunt | 🟡 |
+| Reloj personal del QB | Éxito antes/después de 3.5 s: Mayfield 57.0 → 19.4, Burrow 56.0 → 27.1, Brady 57.4 → 30.2; Prescott 54.8 → 57.1. ~50–70 jugadas tardías por QB | 🟡 |
+| Eslabones débiles en protección | RB recogiendo blitz (PU) pierde 26.0% vs 13.9% de la línea (PP). Tackles 40–80 lb más pesados que su rusher pierden 16.4% vs 9.6% | 🟡 |
+| Carril débil de la línea por equipo | Se repite entre mitades en 12 de 32 equipos (~2× azar): mostrar como "tendencia" con `n` | 🟡 |
+
+## Descartado (no mostrar como hallazgo; sí en "Lo que descartamos")
+
+- **"2 dobles en 5 contra 4 = rusher libre 100%"**: aritmética (0 de 781 jugadas podían salir distinto); 53% son stunts mal registrados por la regla del primer bloqueo.
+- **"Trench Gravity" / estrellas invisibles** (Lotulelei, Zimmer, Vea): correlación entre mitades −0.12; BUF presionaba 41% con Lotulelei fuera.
+- **"Blitz en 3ro y largo = golpe de gracia"**: da más sacks pero también más conversiones.
+- **"Rollout a la derecha: 6.4× menos sacks"**: escogido a conveniencia (izquierda 5.4%); es efecto del play action.
+- **"Presión fantasma"** (rusher a 2–3 yd sin presión baja el % de completos): desaparece dentro de la misma franja de ttt.
+- **Fatiga del rusher**: la presión *sube* con los snaps (sesgo de selección: las estrellas juegan más).
+- **Ruido del estadio**: efecto mínimo.
+- **Vulnerabilidad de un equipo a stunts**: no se repite entre mitades (0.15).
+
+## Reglas de trabajo del equipo
+
+- Usa `PLAN.md` (si existe) como fuente de verdad para el trabajo en curso: decisiones cerradas, contrato de API, horarios, lista de recortes. No reabras decisiones cerradas sin datos nuevos.
+- Si propones un hallazgo nuevo, verifícalo con el estándar de arriba **antes** de escribirlo en la UI o el README, y reporta el número ajustado, `n` y la confianza.
+- Las métricas de la sala de video (radio del pocket, velocidad de cierre, alerta de colapso) se miden solo hasta `t <= ttt`; el tracking sigue ~0.5 s después del lanzamiento.
+- Antes de entregar: `--check` en `TODO OK`, `npm run build` sin errores, sin rutas con `/` inicial, `PLAN.md` borrado, README en español con captura.
 
 ---
 
