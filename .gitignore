@@ -16,3 +16,7 @@ __pycache__/
 *.pem
 *.key
 .aws/
+
+# Datos del evento: se quedan locales (el zip de --entregar los incluye igual)
+data/*
+!data/.gitkeep

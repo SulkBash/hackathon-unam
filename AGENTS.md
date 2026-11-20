@@ -21,7 +21,7 @@ En el navegador abre siempre `http://localhost:...`, no `127.0.0.1`.
 
 - `backend/main.py`: la app FastAPI (`app`), `GET /health`, endpoints bajo `/api/...` y el cargador de `.env`.
 - `dashboard/`: React + Vite + TS + Tailwind 3 + Recharts. `vite.config.ts` ya tiene `base: './'` y el proxy de `/api`.
-- `data/`: datos del evento, **solo lectura**.
+- `data/`: datos del evento, **solo lectura**: `games.csv`, `plays.csv`, `players.csv`, `pffScoutingData.csv`. Están en `.gitignore` (no se versionan), así que muchas herramientas de búsqueda no los listan: ábrelos directamente por su ruta. El zip de `--entregar` sí los incluye.
 - `README.md`: lo primero que leen los jueces (hallazgo principal, audiencia, captura).
 - `.hackathon/`, `.kiro/`, `.venv/`: no se mueven ni se modifican.
 
