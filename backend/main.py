@@ -1,4 +1,4 @@
-"""Trench Gravity — Hackathon NFL Big Data Bowl UNAM API.
+"""La Guerra de los 3.5 Segundos: API del Hackathon NFL Big Data Bowl UNAM.
 
 Ejecuta en desarrollo:
   Windows: .\\.venv\\Scripts\\uvicorn backend.main:app --reload
@@ -42,13 +42,13 @@ def get_engine() -> TrenchAnalytics:
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    # Preload the 14.8 MB summary CSVs once at server startup so every API call is instant
+    # Preload the summary CSVs + precomputed tracking features once at startup so every API call is instant
     if (DATA_DIR / "plays.csv").exists():
         get_engine()
     yield
 
 
-app = FastAPI(title="Trench Gravity — Hackathon NFL UNAM", lifespan=lifespan)
+app = FastAPI(title="La Guerra de los 3.5 Segundos — Hackathon NFL UNAM", lifespan=lifespan)
 
 
 class CoachBriefRequest(BaseModel):
@@ -76,6 +76,16 @@ def api_status() -> dict[str, Any]:
 @app.get("/api/overview")
 def api_overview() -> dict[str, Any]:
     return get_engine().get_overview()
+
+
+@app.get("/api/guerra")
+def api_guerra() -> dict[str, Any]:
+    return get_engine().get_guerra()
+
+
+@app.get("/api/qb-clocks")
+def api_qb_clocks() -> dict[str, Any]:
+    return get_engine().get_qb_clocks()
 
 
 @app.get("/api/players")
@@ -113,7 +123,7 @@ def api_coach_brief(req: CoachBriefRequest) -> dict[str, Any]:
     engine = get_engine()
     if req.mode == "team":
         if not req.team:
-            raise HTTPException(status_code=400, detail="team is required for mode='team'")
+            raise HTTPException(status_code=400, detail="team es obligatorio para mode='team'")
         try:
             ctx = engine.get_team_gameplan(req.team)
         except KeyError as exc:
@@ -121,10 +131,10 @@ def api_coach_brief(req: CoachBriefRequest) -> dict[str, Any]:
         return generate_coach_brief("team", ctx, question=req.question)
     if req.mode == "play":
         if req.gameId is None or req.playId is None:
-            raise HTTPException(status_code=400, detail="gameId and playId are required for mode='play'")
+            raise HTTPException(status_code=400, detail="gameId y playId son obligatorios para mode='play'")
         try:
             ctx = engine.get_play_tracking(req.gameId, req.playId)
         except (KeyError, FileNotFoundError) as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         return generate_coach_brief("play", ctx, question=req.question)
-    raise HTTPException(status_code=400, detail="mode must be 'team' or 'play'")
+    raise HTTPException(status_code=400, detail="mode debe ser 'team' o 'play'")
