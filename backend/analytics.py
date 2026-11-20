@@ -686,6 +686,20 @@ class TrenchAnalytics:
 
         blk_schemes = []
         for code in ["PP", "PA", "SW", "PT", "CL", "UP", "PU", "BH", "CH", "SR", "PR", "NB"]:
+            if code == "CH":
+                # 1,508 of 1,565 CH (chip) rows have pff_role == "Pass Route"; compute from full self.pff.
+                sub = self.pff[self.pff["pff_blockType"] == "CH"].copy()
+                if len(sub) > 0:
+                    ap = ((sub["pff_hitAllowed"] == 1) | (sub["pff_hurryAllowed"] == 1) | (sub["pff_sackAllowed"] == 1)).astype(int)
+                    lost = ((ap == 1) | (sub["pff_beatenByDefender"] == 1)).astype(int)
+                    sk = (sub["pff_sackAllowed"] == 1).astype(int)
+                    blk_schemes.append({
+                        "code": code, "label": BLOCK_TYPE_LABELS.get(code, code), "snaps": int(len(sub)),
+                        "pressure_allowed_rate": _pct(ap.mean()),
+                        "lost_rate": _pct(lost.mean()),
+                        "sack_allowed_rate": _pct(sk.mean()),
+                    })
+                continue
             sub = blk[blk["pff_blockType"] == code]
             if len(sub) > 0:
                 blk_schemes.append({
@@ -705,10 +719,15 @@ class TrenchAnalytics:
                 "sack_allowed_rate": _pct(sub["sack_allowed"].mean()),
             })
 
+        dl_rel_map = (
+            self.dl.assign(rel=self.dl["getoff"] - self.dl["group_mean"])
+            .groupby("defensiveTeam")["rel"].mean().to_dict()
+        )
         team_matrix = []
         for team, grp in pm.groupby("defensiveTeam"):
             g4 = grp[grp["is_blitz"] == 0]
             off_grp = pm[pm["possessionTeam"] == team]
+            off_tk = off_grp[(off_grp["down"] > 0) & off_grp["ttt"].notna()]
             team_matrix.append({
                 "team": str(team),
                 "teamName": TEAM_NAMES.get(str(team), str(team)),
@@ -720,10 +739,24 @@ class TrenchAnalytics:
                 "stunt_rate": _pct(grp["has_stunt"].mean()),
                 "sack_rate": _pct(grp["is_sack"].mean()),
                 "avg_yds_allowed": _r(grp["playResult"].mean(), 2),
+                "def_getoff_rel": _r(dl_rel_map.get(team), 3),
                 "off_press_allowed_rate": _pct(off_grp["had_pressure"].mean()) if len(off_grp) else 0.0,
+                "off_sack_rate": _pct(off_grp["is_sack"].mean()) if len(off_grp) else 0.0,
+                "off_late_share": _pct(off_tk["is_late"].mean()) if len(off_tk) else 0.0,
+                "off_ttt_median": _r(off_tk["ttt"].median(), 1) if len(off_tk) else 0.0,
                 "off_avg_yds": _r(off_grp["playResult"].mean(), 2) if len(off_grp) else 0.0,
             })
         team_matrix.sort(key=lambda x: x["press_rate_4man"], reverse=True)
+        # Split-half stability for team_matrix axes (so UI only treats stable metrics as team traits).
+        pm_tk = pm[pm["ttt"].notna()]
+        team_matrix_stability = {
+            "blitz_rate": split_half_corr(pm, "defensiveTeam", lambda g: g["is_blitz"].mean(), 20)[0],
+            "press_rate_4man": split_half_corr(pm[pm["is_blitz"] == 0], "defensiveTeam", lambda g: g["had_pressure"].mean(), 20)[0],
+            "def_getoff_rel": self._team_getoff_stab,
+            "off_late_share": split_half_corr(pm_tk, "possessionTeam", lambda g: g["is_late"].mean(), 20)[0],
+            "off_sack_rate": split_half_corr(pm, "possessionTeam", lambda g: g["is_sack"].mean(), 20)[0],
+            "off_press_allowed_rate": split_half_corr(pm, "possessionTeam", lambda g: g["had_pressure"].mean(), 20)[0],
+        }
 
         h = self._guerra_cache["headline"]
         return {
@@ -745,6 +778,7 @@ class TrenchAnalytics:
             "block_schemes": blk_schemes,
             "ol_lanes": ol_lanes,
             "team_matrix": team_matrix,
+            "team_matrix_stability": team_matrix_stability,
         }
 
     def get_overview(self) -> dict[str, Any]:
@@ -881,10 +915,10 @@ class TrenchAnalytics:
                     out.append(self._format_play_summary(row, tag=tag, headline=headline))
                     return
 
-        # 1. Get-off que gana: sack by a rusher who got off in <= 0.6 s (prefer Garrett / Crosby)
-        fast = rt[(rt["sack"] == 1) & (rt["getoff"] <= 0.6)].copy()
+        # 1. Get-off que gana: sack by a DL rusher who got off in <= 0.6 s (prefer Garrett / Crosby, faster sack)
+        fast = rt[(rt["sack"] == 1) & rt["officialPosition"].isin(DL_POS) & (rt["getoff"] <= 0.6)].copy()
         fast["star"] = fast["displayName"].isin(["Myles Garrett", "Maxx Crosby"]).astype(int)
-        fast = fast.sort_values(["star", "getoff"], ascending=[False, True])
+        fast = fast.sort_values(["star", "getoff", "ttt"], ascending=[False, True, True])
         for _, fr in fast.iterrows():
             row = pm[(pm["gameId"] == fr["gameId"]) & (pm["playId"] == fr["playId"])]
             if len(row):
@@ -904,9 +938,15 @@ class TrenchAnalytics:
         c = c.assign(_k=(c["ttt"] - 4.5).abs()).sort_values(["_k", "playResult"])
         pick(c, "ZONA DE PELIGRO", "Pasados los 3.5 s: el reloj del QB se acaba")
 
-        # 4. Stunt de 4: 4 rushers, stunt, sack
-        c = pm[(pm["n_rushers"] == 4) & (pm["has_stunt"] == 1) & (pm["is_sack"] == 1)]
-        c = c.assign(_k=(~c["endEvent"].isin(["qb_sack", "qb_strip_sack"])).astype(int)).sort_values(["_k", "ttt"])
+        # 4. Stunt de 4: true 4-man DL stunt sack (avoid DB simulated-pressure blitzes; prefer 2-OL switch on 3rd & 7+)
+        dl_sack_plays = rt[(rt["sack"] == 1) & rt["officialPosition"].isin(DL_POS)][["gameId", "playId"]].drop_duplicates()
+        c = pm[(pm["n_rushers"] == 4) & (pm["has_stunt"] == 1) & (pm["is_sack"] == 1)].merge(
+            dl_sack_plays, on=["gameId", "playId"], how="inner")
+        c = c.assign(
+            _ev=(~c["endEvent"].isin(["qb_sack", "qb_strip_sack"])).astype(int),
+            _sw=(c["n_stunts"] < 2).astype(int),
+            _tl=(c["third_long"] == 0).astype(int),
+        ).sort_values(["_ev", "_sw", "_tl", "ttt"])
         pick(c, "STUNT DE 4", "Rush de 4 con stunt: sack sin mandar a nadie más")
 
         # 5. Blitz en 3ro y largo que termina en conversión
@@ -993,15 +1033,13 @@ class TrenchAnalytics:
         # Team get-off vs league, relative to each rusher's position group (trend only)
         tdl = self.dl[self.dl["defensiveTeam"] == team]
         rel = (tdl["getoff"] - tdl["group_mean"]).mean() if len(tdl) else np.nan
-        dlt = self.dl.assign(rel=self.dl["getoff"] - self.dl["group_mean"])
-        team_stab, _ = split_half_corr(dlt, "defensiveTeam", lambda x: x["rel"].mean(), 200)
         def_getoff = {
             "team_avg": _r(tdl["getoff"].mean(), 3),
             "league_avg": _r(self.dl["getoff"].mean(), 3),
             "vs_group_avg": _r(rel, 3),
             "snaps": int(len(tdl)),
             "label": "Tendencia",
-            "stability": team_stab,
+            "stability": self._team_getoff_stab,
         }
 
         team_rush = self.rush_trk[(self.rush_trk["defensiveTeam"] == team)]
@@ -1062,12 +1100,17 @@ class TrenchAnalytics:
         attack_this_oline.append(
             f"En 3er down y 7+, el blitz da más sacks ({tls['blitz']}% vs {tls['rush4']}%) {blitz_txt}.{best_txt} "
             f"Guarda el blitz para 1ro/2do y 3ro corto.")
+        attack_this_oline.append(
+            f"Su ofensiva usa play action en {pa_rate}% de sus pases (liga: {pa['pa_rate']}%, dato descriptivo): "
+            f"en la liga frena {pa['getoff_delta_adj']:.2f} s al rusher y dispara jugadas de 20+ yd "
+            f"({pa['big_pa']}% vs {pa['big_expected']}%).")
 
         # Hints when YOUR offense faces this defense
         beat_this_defense = [
             f"Play action para la jugada grande: en la liga, a la misma down y distancia, da {pa['big_pa']}% de "
-            f"jugadas de 20+ yardas vs {pa['big_expected']}% (mismo éxito). Cuesta presión; con rollout los sacks "
-            f"bajan a {pa['pa_rollout_sack']}%. Tu ofensiva lo usa en {pa_rate}% de sus pases.",
+            f"jugadas de 20+ yardas vs {pa['big_expected']}% (mismo éxito). En el pocket sube los sacks a "
+            f"{pa['pa_no_rollout_sack']}%; con rollout diseñado bajan a {pa['pa_rollout_sack']}%, a cambio de "
+            f"menos jugadas grandes ({pa['pa_rollout_big']}% vs {pa['pa_no_rollout_big']}%).",
             f"{team} blitzea en {team_blitz}% de los pases (liga: {league_blitz}%). No dejes al corredor solo "
             f"recogiendo blitz: pierde {prot[1]['lost']}% de sus duelos (la línea, {prot[0]['lost']}%). Mandarlo a la "
             f"ruta contra blitz no empeora el resultado.",
@@ -1247,10 +1290,14 @@ class TrenchAnalytics:
         frames_out: list[dict[str, Any]] = []
         telemetry_out: list[dict[str, Any]] = []
         prev_min_dist: float | None = None
+        snap_min_dist: float | None = None
         peak_collapse_vel = 0.0
         min_pocket_radius = 99.0
         closest_rusher_name = ""
         closest_frame_idx = 0
+        fb_min_radius = 99.0
+        fb_rusher_name = ""
+        fb_frame_idx = 0
         key_events: list[dict[str, Any]] = []
         seen_events: set[str] = set()
         last_threat = "CLEAN"
@@ -1319,15 +1366,31 @@ class TrenchAnalytics:
                 pocket_area = (max(xs) - min(xs)) * (max(ys) - min(ys))
 
             # Metrics are measured only during the dropback (tracking continues ~0.5 s after the throw).
+            # Pre-snap frames (t < 0) stay CLEAN; under-center snaps (<4 yd from NT) skip initial dropback (<1.2 s)
+            # unless a rusher blows up the play immediately (<2 yd).
             if in_dropback:
-                if t_sec >= 0.0 and min_dist < min_pocket_radius:
-                    min_pocket_radius = min_dist
-                    closest_frame_idx = idx
-                    if nearest_id is not None:
-                        closest_rusher_name = role_meta.get(nearest_id, {}).get("name", "")
-                if t_sec >= 0.0 and collapse_vel > peak_collapse_vel:
-                    peak_collapse_vel = collapse_vel
-                last_threat = "COLLAPSE" if min_dist < 2.5 else ("CLOSING" if min_dist < 4.2 else "CLEAN")
+                if t_sec < 0.0:
+                    last_threat = "CLEAN"
+                else:
+                    if snap_min_dist is None:
+                        snap_min_dist = min_dist
+                    if min_dist < fb_min_radius:
+                        fb_min_radius = min_dist
+                        fb_frame_idx = idx
+                        if nearest_id is not None:
+                            fb_rusher_name = role_meta.get(nearest_id, {}).get("name", "")
+                    in_uc_dropback = snap_min_dist < 4.0 and ttt >= 1.2 and t_sec < 1.2 and min_dist >= 2.0
+                    if not in_uc_dropback:
+                        if min_dist < min_pocket_radius:
+                            min_pocket_radius = min_dist
+                            closest_frame_idx = idx
+                            if nearest_id is not None:
+                                closest_rusher_name = role_meta.get(nearest_id, {}).get("name", "")
+                        if collapse_vel > peak_collapse_vel:
+                            peak_collapse_vel = collapse_vel
+                        last_threat = "COLLAPSE" if min_dist < 2.5 else ("CLOSING" if min_dist < 4.2 else "CLEAN")
+                    else:
+                        last_threat = "CLEAN"
 
             frames_out.append({
                 "frameId": fid_int, "t": t_sec, "event": ev, "ball": ball_pos,
@@ -1341,6 +1404,9 @@ class TrenchAnalytics:
                 "closingSpeed": round(max_closing, 2), "collapseRate": round(collapse_vel, 2),
                 "pocketArea": round(pocket_area, 1), "event": ev, "postThrow": not in_dropback,
             })
+
+        if min_pocket_radius >= 99.0 and fb_min_radius < 99.0:
+            min_pocket_radius, closest_frame_idx, closest_rusher_name = fb_min_radius, fb_frame_idx, fb_rusher_name
 
         all_x = tr["x"].dropna()
         x_min = max(0.0, float(np.percentile(all_x, 5)) - 8.0)
@@ -1356,6 +1422,9 @@ class TrenchAnalytics:
                        if lo < ttt <= hi or (lo == 0 and ttt <= hi)), None)
         end_lbl = {"pass_forward": "lanzó", "autoevent_passforward": "lanzó", "qb_sack": "fue capturado",
                    "qb_strip_sack": "fue capturado", "run": "salió corriendo", "fumble": "soltó el balón"}.get(end_event, "terminó")
+        end_before = {"pass_forward": "antes del lanzamiento", "autoevent_passforward": "antes del lanzamiento",
+                      "qb_sack": "hasta el sack", "qb_strip_sack": "hasta el sack",
+                      "run": "antes de la carrera del QB", "fumble": "antes del balón suelto"}.get(end_event, "durante el dropback")
         notes = []
         clock_note = f"Reloj: el QB {end_lbl} a los {ttt:.1f} s."
         if bucket:
@@ -1371,10 +1440,10 @@ class TrenchAnalytics:
             notes.append(f"Arranque más rápido: {best['name']}, {best['getoff']:.1f} s{med_txt}.")
         if press_names:
             notes.append(f"Presión de: {', '.join(press_names)}. El rusher más cercano llegó a "
-                         f"{round(min_pocket_radius, 1)} yd del QB antes del lanzamiento.")
+                         f"{round(min_pocket_radius, 1)} yd del QB {end_before}.")
         else:
             notes.append(f"Pocket limpio: ningún rusher se acercó a menos de {round(min_pocket_radius, 1)} yd "
-                         f"antes del lanzamiento.")
+                         f"{end_before}.")
         if bool(prow["is_play_action"]):
             pa = self._guerra_cache["play_action"]
             notes.append(f"Play action: en la liga el amague retrasa el arranque de cada rusher "

@@ -13,7 +13,7 @@ Cada pase es una carrera entre dos relojes: el del quarterback y el de los pass 
 | **Zona de peligro después de 3.5 s** | Sacks: 1.9% antes vs 19.2% después; éxito: 52.8% → 35.9%. Uno de cada cuatro pases (25.5%) llega ahí | 🟢 |
 | **El get-off gana** | Mismo jugador: 0.3 s antes que su mediana → 21.3% de presión; 0.3 s después → 7.4%. Es la métrica más estable del dataset (0.79 entre mitades de temporada) | 🟢 |
 | **El play action es el arma de la jugada grande** | Jugadas de 20+ yardas: 13.6% vs 7.7% esperado (1.8×), con el mismo éxito (54.1% vs 54.1%). El costo: más presión (37.8% vs 30.5%) | 🟢 |
-| **El blitz depende del down** | Ayuda en 1ro/2do (−2.3 pts de éxito rival) y en 3ro corto (−5.2). En 3ro y 7+ da más sacks (9.5% → 15.1%) pero **+4.5 pts de conversiones**, y ahí es justo donde más se usa (30% vs 22%) | 🟡 |
+| **El blitz depende del down** | Ayuda en 1ro/2do (−2.3 pts de éxito rival) y en 3ro corto (−5.2). En 3ro y 7+ da más sacks (9.5% → 15.1%, z 2.6) pero **+4.5 pts de conversiones** (cuando el QB evita el sack: 42.5% vs 35.1%, z 2.2; con más cobertura hombre a hombre: 57.8% vs 27.1%), y ahí es justo donde más se usa (30% vs 22%) | 🟡 |
 
 ![Pestaña "El Reloj": zona de peligro, get-off y play action](docs/executive-playbook.png)
 
@@ -24,7 +24,7 @@ Cada pase es una carrera entre dos relojes: el del quarterback y el de los pass 
 | **Coordinador defensivo** | Blitz en 1ro/2do y 3ro corto, **no** en 3ro y largo. Ahí, rush de 4 con stunt | En 3ro y 7+, vs rush de 4 sin stunt (29.4% de conversión, n=541): 4 con stunt −4.6 pts (ee 3.1, muestra chica); blitz sin stunt −0.7; blitz con stunt +4.7 |
 | | Entrena y mide el get-off de cada rusher contra su propia mediana | 0.7–1.2 pts de presión por cada 0.1 s, con cualquier control (tabla abajo) |
 | | Ataca el carril más débil de la línea rival | El plan de juego de cada equipo muestra presión permitida por carril con su `n` (tendencia: se repite en 12 de 32 equipos, ~2× el azar) |
-| **Coordinador ofensivo** | Play action para la jugada grande, con rollout diseñado para bajar los sacks | PA + rollout: 2.7% de sacks (10 de 365) vs 7.2% del PA sin rollout |
+| **Coordinador ofensivo** | Play action para la jugada grande; usa rollout diseñado si priorizas evitar sacks (con menos pases largos) | PA + rollout: 2.7% de sacks (10 de 365) vs 7.3% sin rollout (−4.9 pts, z −4.0), a cambio de 9.9% vs 14.4% de jugadas de 20+ yd (−5.1 pts, z −2.7) |
 | | No dejes al corredor solo recogiendo blitz | El RB que recoge blitz pierde 26.0% de sus duelos (800 duelos) vs 13.8% de la línea. Mandarlo a la ruta contra blitz no empeora: +4.0 pts de éxito (ee 2.4) |
 | | Diseña lecturas que salgan antes de 3.5 s | Liga: 52.8% de éxito antes vs 35.9% después |
 | **Jugadores** | Rusher: mejora tu get-off personal (comparado dentro de tu grupo: Edge ~0.75 s, Interior ~0.83 s) | Edge: +1.6 pts de presión por 0.1 s; Interior: +0.8 (con controles) |

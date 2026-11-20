@@ -27,10 +27,12 @@ def _deterministic_team_brief(gameplan: dict[str, Any]) -> str:
     lines += [f"• {h}" for h in gameplan["beat_this_defense"]]
     dg = defn.get("def_getoff", {})
     if dg.get("snaps"):
+        rel_s = dg["vs_group_avg"]
+        rel_dir = "más rápido" if rel_s < 0 else ("más lento" if rel_s > 0 else "en el promedio")
         lines.append("")
         lines.append(
             f"• Get-off de su línea defensiva: {dg['team_avg']} s de promedio (liga {dg['league_avg']} s; "
-            f"{dg['vs_group_avg']:+.3f} s vs el promedio de su grupo de posición). Tendencia, no rasgo fijo."
+            f"{rel_s:+.3f} s vs su grupo de posición, {rel_dir}). Tendencia, no rasgo fijo."
         )
     lines.append(
         f"• Contexto: {off['plays']} pases de su ofensiva (presión permitida {off['pressure_allowed_rate']}%), "
@@ -43,8 +45,9 @@ def _deterministic_play_brief(tracking: dict[str, Any]) -> str:
     p = tracking["play"]
     phys = tracking["physicsSummary"]
     plan = ("blitz" if p.get("is_blitz") else f"rush de {p['n_rushers']}") + (" con stunt" if p["has_stunt"] else "")
+    sit = "Conversión de 2 pts" if p["down"] == 0 else f"{p['down']}° y {p['yardsToGo']}"
     lines = [
-        f"SALA DE VIDEO: {p['matchup']} (Q{p['quarter']} {p['gameClock']}, {p['down']}° y {p['yardsToGo']})",
+        f"SALA DE VIDEO: {p['matchup']} (Q{p['quarter']} {p['gameClock']}, {sit})",
         "",
         f"• Estructura: {p['n_blockers']} bloqueadores contra {p['n_rushers']} rushers ({plan}"
         f"{', play action' if p['is_play_action'] else ''}).",
