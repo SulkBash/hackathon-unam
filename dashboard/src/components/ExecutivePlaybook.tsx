@@ -25,6 +25,7 @@ type Props = {
   error: string | null
   teams: TeamMatrixRow[]
   qbClocks: QbClocksData | null
+  teamStability?: Record<string, number>
   onSelectTeam: (team: string) => void
   onWatchDemo: () => void
 }
@@ -61,6 +62,22 @@ function wavg(rows: Ranged[], key: 'sack' | 'success' | 'big' | 'pressure'): num
 const num = (v: unknown) => (typeof v === 'number' ? v : Number(v))
 const pct0 = (v: number | null | undefined) => (v === null || v === undefined || Number.isNaN(v) ? '–' : `${Math.round(v)}%`)
 const ratio = (a?: number | null, b?: number | null) => (a && b ? a / b : null)
+
+function pearson(xs: number[], ys: number[]): number | null {
+  const n = xs.length
+  if (n < 3) return null
+  const mx = xs.reduce((a, b) => a + b, 0) / n
+  const my = ys.reduce((a, b) => a + b, 0) / n
+  let sxy = 0
+  let sxx = 0
+  let syy = 0
+  for (let i = 0; i < n; i++) {
+    sxy += (xs[i] - mx) * (ys[i] - my)
+    sxx += (xs[i] - mx) ** 2
+    syy += (ys[i] - my) ** 2
+  }
+  return sxx && syy ? sxy / Math.sqrt(sxx * syy) : null
+}
 
 function Confianza({ nivel }: { nivel: 'robusto' | 'moderado' }) {
   return (
@@ -118,7 +135,7 @@ function Skeleton() {
   )
 }
 
-export default function ExecutivePlaybook({ data, error, teams, qbClocks, onSelectTeam, onWatchDemo }: Props) {
+export default function ExecutivePlaybook({ data, error, teams, qbClocks, teamStability, onSelectTeam, onWatchDemo }: Props) {
   // El único momento animado de la página (DESIGN §5): la jugada real corre una vez al entrar en pantalla.
   const { ref, visto } = useInView<HTMLDivElement>(0.2)
   const t = usePlayhead({ from: -0.3, to: 5.5, duration: 4600, run: visto && !!data })
@@ -145,7 +162,9 @@ export default function ExecutivePlaybook({ data, error, teams, qbClocks, onSele
   const b3540 = findB(3.5, 4)
   const b4050 = findB(4, 5)
   // ~×2.5 cada medio segundo: media geométrica de los pasos 2.5–3.0 → 3.0–3.5 → 3.5–4.0 (tramos de 0.5 s con muestra suficiente)
-  const mult = b2530 && b3540 && b2530.sack > 0 ? Math.sqrt(b3540.sack / b2530.sack) : null
+  const mult =
+    data.danger_zone?.sack_multiplier_per_half_second ??
+    (b2530 && b3540 && b2530.sack > 0 ? Math.sqrt(b3540.sack / b2530.sack) : null)
   const sackEarly = wavg(cliff.filter((b) => b.to <= 3.5), 'sack')
   const sackAfter4 = wavg(cliff.filter((b) => b.from >= 4), 'sack')
   const successEarly = qbClocks?.league.success_early ?? wavg(cliff.filter((b) => b.to <= 3.5), 'success')
@@ -178,7 +197,9 @@ export default function ExecutivePlaybook({ data, error, teams, qbClocks, onSele
 
   const stunt4 = rush_plans?.find((p) => /4 con stunt/i.test(p.plan))
   const blitzNo = rush_plans?.find((p) => /blitz sin stunt/i.test(p.plan))
-  const stuntMatchesBlitz = stunt4 && blitzNo && stunt4.adj_delta < 0 && blitzNo.adj_delta < 0 && Math.abs(stunt4.adj_delta - blitzNo.adj_delta) < 1.5
+  // Auditoría: a la yarda exacta, 4 con stunt y blitz sin stunt NO tienen "el mismo efecto"; solo afirmamos que ambos bajan el éxito.
+  const stuntAndBlitzHelp = !!(stunt4 && blitzNo && stunt4.adj_delta < 0 && blitzNo.adj_delta < 0)
+  const isSig = (r: { z?: number; adj_delta: number }) => r.adj_delta !== 0 && (r.z === undefined || Math.abs(r.z) >= 2)
   const planMax = Math.max(1, ...(rush_plans ?? []).map((p) => Math.abs(p.adj_delta)), ...sitRows.map((r) => Math.abs(r.adj_delta)))
   const deltaDomain: [number, number] = [-Math.ceil(planMax * 1.45), Math.ceil(planMax * 1.45)]
 
@@ -196,8 +217,11 @@ export default function ExecutivePlaybook({ data, error, teams, qbClocks, onSele
       ]
     : []
 
-  const avgBlitz = teams.length ? teams.reduce((a, r) => a + r.blitz_rate, 0) / teams.length : 0
-  const avg4 = teams.length ? teams.reduce((a, r) => a + r.press_rate_4man, 0) / teams.length : 0
+  // Scatter estable (auditoría): el reloj ofensivo se repite entre mitades; la presión con 4 por equipo no (−0.36)
+  const clockTeams = teams.filter((r) => typeof r.off_late_share === 'number' && typeof r.off_press_allowed_rate === 'number')
+  const avgLate = clockTeams.length ? clockTeams.reduce((a, r) => a + (r.off_late_share ?? 0), 0) / clockTeams.length : 0
+  const avgPress = clockTeams.length ? clockTeams.reduce((a, r) => a + r.off_press_allowed_rate, 0) / clockTeams.length : 0
+  const clockR = pearson(clockTeams.map((r) => r.off_late_share ?? 0), clockTeams.map((r) => r.off_press_allowed_rate))
 
   return (
     <div className="space-y-16 pb-10">
@@ -445,11 +469,11 @@ export default function ExecutivePlaybook({ data, error, teams, qbClocks, onSele
       {/* ------------------------------------------------------ (c) PLANES DE RUSH */}
       <Section
         title={
-          stuntMatchesBlitz
-            ? 'Un rush de 4 con stunt logra lo mismo que un blitz, sin quitar gente de la cobertura'
+          stuntAndBlitzHelp
+            ? 'Stunt y blitz bajan el éxito del rival; el stunt de 4 lo intenta sin sacar gente de la cobertura'
             : 'Cambio en el éxito del rival según el plan de rush'
         }
-        note="Ajustado por down y distancia. Stunt = dos rushers cruzan carriles. Blitz = 5 o más rushers."
+        note="Ajustado por down y distancia exacta. Stunt = dos rushers cruzan carriles. Blitz = 5 o más rushers. En gris, lo que no es significativo solo (|z| < 2)."
       >
         <div className="grid grid-cols-12 gap-x-10 gap-y-6">
           <div className="col-span-12 lg:col-span-7">
@@ -471,7 +495,9 @@ export default function ExecutivePlaybook({ data, error, teams, qbClocks, onSele
                       return (
                         <div className="rounded border border-slate-600 bg-cesped-claro px-3 py-2 text-[13px] text-pintura">
                           <div className="font-semibold">{r.plan}</div>
-                          <div className="text-slate-300">Cambio ajustado {signed(r.adj_delta)} pts</div>
+                          <div className="text-slate-300">
+                            Cambio ajustado {signed(r.adj_delta)} pts{r.z !== undefined ? ` (z ${f1(r.z)})` : ''}
+                          </div>
                           <div className="text-slate-300">Presión {f1(r.pressure)}%, sacks {f1(r.sack)}%</div>
                           <div className="text-slate-400">n = {n0(r.plays)} jugadas</div>
                         </div>
@@ -480,15 +506,11 @@ export default function ExecutivePlaybook({ data, error, teams, qbClocks, onSele
                   />
                   <Bar dataKey="adj_delta" maxBarSize={72}>
                     {(rush_plans ?? []).map((r) => (
-                      <Cell key={r.plan} fill={/4 con stunt/i.test(r.plan) ? TG.red : TG.neutral} />
+                      <Cell key={r.plan} fill={isSig(r) ? TG.neutralStrong : 'rgba(242,244,238,0.16)'} />
                     ))}
                     <LabelList
                       dataKey="adj_delta"
-                      content={(p: unknown) => {
-                        const g = p as LabelGeom
-                        const row = (rush_plans ?? [])[g.index ?? -1]
-                        return <DeltaLabel {...g} highlight={!!row && /4 con stunt/i.test(row.plan)} />
-                      }}
+                      content={(p: unknown) => <DeltaLabel {...(p as LabelGeom)} />}
                     />
                   </Bar>
                 </BarChart>
@@ -504,6 +526,7 @@ export default function ExecutivePlaybook({ data, error, teams, qbClocks, onSele
                   <th className="py-2 text-right font-medium">Presión</th>
                   <th className="py-2 text-right font-medium">Sacks</th>
                   <th className="py-2 text-right font-medium">Ajustado</th>
+                  <th className="py-2 text-right font-medium">z</th>
                 </tr>
               </thead>
               <tbody className="text-slate-200">
@@ -513,15 +536,16 @@ export default function ExecutivePlaybook({ data, error, teams, qbClocks, onSele
                     <td className="py-2 text-right">{n0(r.plays)}</td>
                     <td className="py-2 text-right">{f1(r.pressure)}%</td>
                     <td className="py-2 text-right">{f1(r.sack)}%</td>
-                    <td className={`py-2 text-right ${/4 con stunt/i.test(r.plan) ? 'text-peligro' : ''}`}>{signed(r.adj_delta)}</td>
+                    <td className={`py-2 text-right ${isSig(r) ? 'text-pintura' : 'text-slate-400'}`}>{signed(r.adj_delta)}</td>
+                    <td className="py-2 text-right text-slate-400">{r.z !== undefined && r.adj_delta !== 0 ? f1(r.z) : '–'}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
             {stunt4 && blitzNo && (
               <p className="mt-4 text-[15px] leading-relaxed text-slate-300">
-                El rush de 4 con stunt baja el éxito del rival {signed(stunt4.adj_delta)} pts y el blitz sin stunt {signed(blitzNo.adj_delta)}:
-                casi lo mismo, pero el stunt deja 7 jugadores en cobertura.
+                El blitz sin stunt baja el éxito del rival {signed(blitzNo.adj_delta)} pts. El rush de 4 con stunt lo baja{' '}
+                {signed(stunt4.adj_delta)} pts sin sacar gente de la cobertura: es una tendencia, no significativa por sí sola.
               </p>
             )}
             <p className="mt-2"><Confianza nivel="moderado" /></p>
@@ -711,11 +735,23 @@ export default function ExecutivePlaybook({ data, error, teams, qbClocks, onSele
         </div>
       </Section>
 
-      {/* ------------------------------------------------------ 32 DEFENSAS */}
-      {teams.length > 0 && (
+      {/* ------------------------------------------------------ 32 OFENSIVAS: RELOJ vs PRESIÓN */}
+      {clockTeams.length >= 10 && (
         <Section
-          title="Cómo presiona cada defensa: con 4 o con blitz"
-          note="Cada punto es una defensa. Las líneas punteadas son el promedio de la liga. Haz clic en un equipo para abrir su plan de juego."
+          title={
+            clockR !== null && clockR > 0.3
+              ? 'Las ofensivas cuyo QB sostiene más el balón reciben más presión'
+              : 'Reloj del QB y presión permitida, equipo por equipo'
+          }
+          note={
+            <>
+              Cada punto es una ofensiva (8 semanas). Correlación entre los {clockTeams.length} equipos: r = {f1(clockR, 2)}.
+              {teamStability?.off_late_share !== undefined && (
+                <> El % de pases después de 3.5 s se repite entre mitades de temporada ({f1(teamStability.off_late_share, 2)}).</>
+              )}{' '}
+              Haz clic en un equipo para abrir su plan de juego.
+            </>
+          }
         >
           <div className="h-[380px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -723,27 +759,27 @@ export default function ExecutivePlaybook({ data, error, teams, qbClocks, onSele
                 <CartesianGrid stroke={TG.grid} />
                 <XAxis
                   type="number"
-                  dataKey="blitz_rate"
-                  name="% de blitz"
+                  dataKey="off_late_share"
+                  name="% de pases después de 3.5 s"
                   unit="%"
                   domain={['dataMin - 2', 'dataMax + 2']}
                   {...tgAxis}
                   tickFormatter={(v: number) => `${Math.round(v)}`}
-                  label={{ value: '% de jugadas con blitz', position: 'insideBottom', offset: -14, fill: TG.axis, fontSize: 13 }}
+                  label={{ value: '% de pases que salen después de 3.5 s', position: 'insideBottom', offset: -14, fill: TG.axis, fontSize: 13 }}
                 />
                 <YAxis
                   type="number"
-                  dataKey="press_rate_4man"
-                  name="Presión con 4"
+                  dataKey="off_press_allowed_rate"
+                  name="Presión permitida"
                   unit="%"
                   domain={['dataMin - 2', 'dataMax + 2']}
                   {...tgAxis}
                   tickFormatter={(v: number) => `${Math.round(v)}`}
                   width={56}
-                  label={{ value: '% de presión con 4 rushers', angle: -90, position: 'insideLeft', offset: 8, fill: TG.axis, fontSize: 13 }}
+                  label={{ value: '% de pases con presión permitida', angle: -90, position: 'insideLeft', offset: 8, fill: TG.axis, fontSize: 13 }}
                 />
-                <ReferenceLine x={avgBlitz} stroke={TG.text} strokeOpacity={0.35} strokeDasharray="4 4" />
-                <ReferenceLine y={avg4} stroke={TG.text} strokeOpacity={0.35} strokeDasharray="4 4" />
+                <ReferenceLine x={avgLate} stroke={TG.text} strokeOpacity={0.35} strokeDasharray="4 4" />
+                <ReferenceLine y={avgPress} stroke={TG.text} strokeOpacity={0.35} strokeDasharray="4 4" />
                 <Tooltip
                   cursor={{ strokeDasharray: '3 3', stroke: TG.axis }}
                   content={({ active, payload }) => {
@@ -752,16 +788,16 @@ export default function ExecutivePlaybook({ data, error, teams, qbClocks, onSele
                     return (
                       <div className="rounded border border-slate-600 bg-cesped-claro px-3 py-2 text-[13px] text-pintura">
                         <div className="font-semibold">{r.teamName} ({r.team})</div>
-                        <div className="text-slate-300">Presión con 4: {f1(r.press_rate_4man)}%</div>
-                        <div className="text-slate-300">Blitz: {f1(r.blitz_rate)}%, stunts: {f1(r.stunt_rate)}%</div>
-                        <div className="text-slate-300">Sacks: {f1(r.sack_rate)}%</div>
-                        <div className="text-slate-400">n = {n0(r.def_plays)} jugadas. Clic para abrir su plan</div>
+                        <div className="text-slate-300">Pases después de 3.5 s: {f1(r.off_late_share)}%</div>
+                        <div className="text-slate-300">Lanzamiento mediano: {f1(r.off_ttt_median)} s</div>
+                        <div className="text-slate-300">Presión permitida: {f1(r.off_press_allowed_rate)}%, sacks {f1(r.off_sack_rate)}%</div>
+                        <div className="text-slate-400">Clic para abrir su plan de juego</div>
                       </div>
                     )
                   }}
                 />
                 <Scatter
-                  data={teams}
+                  data={clockTeams}
                   fill={TG.text}
                   fillOpacity={0.85}
                   className="cursor-pointer"

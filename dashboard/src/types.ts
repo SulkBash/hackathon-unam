@@ -112,20 +112,28 @@ export interface TeamMatrixRow {
   avg_yds_allowed: number;
   off_press_allowed_rate: number;
   off_avg_yds: number;
+  plays_4man?: number;
+  def_getoff_rel?: number;
+  off_sack_rate?: number;
+  off_late_share?: number;
+  off_ttt_median?: number;
 }
 
 export interface OverviewData {
   summary: OverviewSummary;
-  pressure_impact: PressureImpactRow[];
-  dt_paradox: DtParadoxRow[];
-  gravity_lift: GravityLiftRow[];
-  stunt_impact: StuntImpactRow[];
-  dropback_counters: DropbackCounterRow[];
-  protection_tiers: ProtectionTierRow[];
-  blitz_situations: BlitzSituationRow[];
-  block_schemes: BlockSchemeRow[];
-  ol_lanes: OlLaneRow[];
+  block_schemes?: BlockSchemeRow[];
+  ol_lanes?: OlLaneRow[];
   team_matrix: TeamMatrixRow[];
+  /** Split-half (weeks 1-4 vs 5-8) correlation of each team_matrix column. */
+  team_matrix_stability?: Record<string, number>;
+  /** Legacy v1 tables (removed by the audit). Never rendered. */
+  pressure_impact?: PressureImpactRow[];
+  dt_paradox?: DtParadoxRow[];
+  gravity_lift?: GravityLiftRow[];
+  stunt_impact?: StuntImpactRow[];
+  dropback_counters?: DropbackCounterRow[];
+  protection_tiers?: ProtectionTierRow[];
+  blitz_situations?: BlitzSituationRow[];
 }
 
 export interface GravityDefender {
@@ -311,6 +319,8 @@ export interface RushPlanRow {
   sack: number;
   success: number;
   adj_delta: number;
+  se?: number;
+  z?: number;
 }
 
 export interface ProtectionRow {
@@ -319,9 +329,20 @@ export interface ProtectionRow {
   lost: number;
 }
 
+export interface GuerraDangerZone {
+  threshold?: number;
+  sack_before?: number;
+  sack_after?: number;
+  success_before?: number;
+  success_after?: number;
+  late_share?: number;
+  sack_multiplier_per_half_second?: number;
+}
+
 export interface GuerraData {
   headline: GuerraHeadline;
   cliff: CliffBucket[];
+  danger_zone?: GuerraDangerZone;
   getoff: GuerraGetoff;
   play_action: GuerraPlayAction;
   blitz: GuerraBlitz;
@@ -458,7 +479,8 @@ export interface TeamGameplan {
   };
   /** PLAN 2.5 additions */
   qb_clock?: TeamQbClock | null;
-  def_getoff_avg?: number | null;
+  /** Number (original contract) or object with the group-adjusted comparison (remote implementation). */
+  def_getoff_avg?: number | { team_avg?: number; league_avg?: number; vs_group_avg?: number; snaps?: number; label?: string; stability?: number } | null;
   league_getoff_avg?: number | null;
   pa_rate?: number | null;
   attack_this_oline: string[];

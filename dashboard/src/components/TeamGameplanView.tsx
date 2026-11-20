@@ -536,10 +536,17 @@ function OffenseProfile({ plan }: { plan: TeamGameplan }) {
 }
 
 function DefenseGetoff({ plan }: { plan: TeamGameplan }) {
-  const team = plan.def_getoff_avg
-  const league = plan.league_getoff_avg
+  // La API puede mandar un número (contrato original) o un objeto con el promedio ajustado por grupo (edge/interior).
+  const raw = plan.def_getoff_avg as unknown
+  const obj =
+    raw && typeof raw === 'object'
+      ? (raw as { team_avg?: number; league_avg?: number; vs_group_avg?: number; snaps?: number; stability?: number })
+      : null
+  const team = obj ? obj.team_avg : (raw as number | null | undefined)
+  const league = obj ? obj.league_avg : plan.league_getoff_avg
   if (team == null || league == null) return null
-  const faster = team < league
+  const rel = obj?.vs_group_avg ?? team - league
+  const faster = rel < 0
   return (
     <div>
       <div className="flex flex-wrap items-center gap-2">
@@ -557,13 +564,14 @@ function DefenseGetoff({ plan }: { plan: TeamGameplan }) {
           get-off promedio de sus rushers
           <br />
           <span className="text-slate-400">
-            liga: {f1(league, 2)} s ({signed(team - league, 2)} s)
+            liga: {f1(league, 2)} s. Contra su grupo (edge o interior): {signed(rel, 2)} s
           </span>
         </p>
       </div>
       <p className="mt-3 text-[13px] text-slate-400">
-        Get-off: segundos desde el snap hasta que el rusher avanza 1 yarda. A nivel equipo es solo una tendencia (8
-        semanas y mezcla de edges e interiores); el efecto robusto es el de cada jugador contra sí mismo.
+        Get-off: segundos desde el snap hasta que el rusher avanza 1 yarda. A nivel equipo es solo una tendencia
+        {obj?.stability != null ? ` (se repite poco entre mitades de temporada: ${f1(obj.stability, 2)})` : ''}
+        {obj?.snaps != null ? `; n = ${n0(obj.snaps)} snaps` : ''}. El efecto robusto es el de cada jugador contra sí mismo.
       </p>
     </div>
   )

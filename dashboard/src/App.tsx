@@ -122,6 +122,7 @@ export default function App() {
               error={guerra.error}
               teams={teams}
               qbClocks={qbClocks.data}
+              teamStability={overview.data?.team_matrix_stability}
               onSelectTeam={handleSelectTeam}
               onWatchDemo={() => {
                 setSelectedPlay(DEMO_PLAY)

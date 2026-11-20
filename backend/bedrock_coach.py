@@ -1,10 +1,10 @@
-"""Resumen opcional con Amazon Bedrock (Amazon Nova) + respaldo determinista en español.
+"""Resumen opcional del coordinador con Amazon Bedrock (Amazon Nova) + respaldo determinista.
 
 Sigue .hackathon/rules.md:
-- Nunca lee, verifica ni exige AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY / AWS_SESSION_TOKEN.
+- No lee, verifica ni exige AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY / AWS_SESSION_TOKEN.
 - Crea el cliente solo con la región: boto3.client("bedrock-runtime", region_name=region).
-- Lee BEDROCK_MODEL_ID (por omisión us.amazon.nova-pro-v1:0) y AWS_REGION (por omisión us-east-1).
-- Si Bedrock no está disponible, devuelve un resumen determinista construido con los mismos datos verificados.
+- Lee BEDROCK_MODEL_ID (por defecto us.amazon.nova-pro-v1:0) y AWS_REGION (por defecto us-east-1).
+- Si Bedrock falla o no está disponible, devuelve un resumen determinista construido con los datos.
 """
 from __future__ import annotations
 
@@ -15,85 +15,49 @@ from typing import Any
 import boto3
 from botocore.config import Config
 
-END_ES = {
-    "pass_forward": "lanzamiento",
-    "pass_shovel": "lanzamiento",
-    "qb_sack": "sack",
-    "qb_strip_sack": "sack con balón suelto",
-    "run": "scramble",
-    "fumble": "balón suelto",
-}
-
 
 def _deterministic_team_brief(gameplan: dict[str, Any]) -> str:
-    team = gameplan.get("teamName") or gameplan.get("team", "")
-    lines = [f"Resumen del coordinador: {team}", ""]
-    attack = gameplan.get("attack_this_oline") or []
-    beat = gameplan.get("beat_this_defense") or []
-    if attack:
-        lines.append("Cuando tu defensa enfrenta a su ofensiva:")
-        lines += [f"• {h}" for h in attack]
-    if beat:
-        if attack:
-            lines.append("")
-        lines.append("Cuando tu ofensiva enfrenta a su defensa:")
-        lines += [f"• {h}" for h in beat]
-    if not attack and not beat:
-        weak = (gameplan.get("offense") or {}).get("weakest_lane") or {}
-        if weak:
-            lines.append(
-                f"• Ataca el carril {weak.get('lane')} ({weak.get('starter')}): permitió presión en "
-                f"{weak.get('pressure_allowed_rate')}% de {weak.get('total_snaps')} bloqueos. Tendencia de 8 semanas."
-            )
+    off = gameplan["offense"]
+    defn = gameplan["defense"]
+    lines = [f"RESUMEN DEL COORDINADOR: {gameplan['teamName'].upper()}", ""]
+    lines.append("Si tu defensa enfrenta a esta ofensiva:")
+    lines += [f"• {h}" for h in gameplan["attack_this_oline"]]
+    lines.append("")
+    lines.append("Si tu ofensiva enfrenta a esta defensa:")
+    lines += [f"• {h}" for h in gameplan["beat_this_defense"]]
+    dg = defn.get("def_getoff", {})
+    if dg.get("snaps"):
+        rel_s = dg["vs_group_avg"]
+        rel_dir = "más rápido" if rel_s < 0 else ("más lento" if rel_s > 0 else "en el promedio")
+        lines.append("")
+        lines.append(
+            f"• Get-off de su línea defensiva: {dg['team_avg']} s de promedio (liga {dg['league_avg']} s; "
+            f"{rel_s:+.3f} s vs su grupo de posición, {rel_dir}). Tendencia, no rasgo fijo."
+        )
+    lines.append(
+        f"• Contexto: {off['plays']} pases de su ofensiva (presión permitida {off['pressure_allowed_rate']}%), "
+        f"{defn['plays']} pases enfrentados por su defensa (presión generada {defn['pressure_rate']}%)."
+    )
     return "\n".join(lines)
 
 
 def _deterministic_play_brief(tracking: dict[str, Any]) -> str:
-    p = tracking.get("play", {})
-    phys = tracking.get("physicsSummary", {})
-    ttt = p.get("ttt")
-    end = END_ES.get(str(p.get("endEvent")), "fin del dropback")
+    p = tracking["play"]
+    phys = tracking["physicsSummary"]
+    plan = ("blitz" if p.get("is_blitz") else f"rush de {p['n_rushers']}") + (" con stunt" if p["has_stunt"] else "")
+    sit = "Conversión de 2 pts" if p["down"] == 0 else f"{p['down']}° y {p['yardsToGo']}"
     lines = [
-        f"Sala de Video: {p.get('matchup', '')} (cuarto {p.get('quarter')}, {p.get('gameClock')}, {p.get('down')} y {p.get('yardsToGo')})",
+        f"SALA DE VIDEO: {p['matchup']} (Q{p['quarter']} {p['gameClock']}, {sit})",
         "",
+        f"• Estructura: {p['n_blockers']} bloqueadores contra {p['n_rushers']} rushers ({plan}"
+        f"{', play action' if p['is_play_action'] else ''}).",
     ]
-    if ttt is not None:
-        zona = "después de 3.5 s, en la zona de peligro" if ttt > 3.5 else "antes de 3.5 s"
-        lines.append(f"• Reloj: {end} a los {ttt} s, {zona}.")
-    lines.append(
-        f"• Protección: {p.get('n_blockers')} bloqueadores contra {p.get('n_rushers')} rushers"
-        f"{', con stunt' if p.get('has_stunt') else ''}{', con play action' if p.get('is_play_action') else ''}."
-    )
-    rushers = [r for r in tracking.get("roster", []) if r.get("role") == "Pass Rush" and r.get("getoff") is not None]
-    if rushers:
-        fastest = min(rushers, key=lambda r: r["getoff"])
-        lines.append(f"• Arranque más rápido: {fastest.get('name')} en {fastest['getoff']:.2f} s.")
-    if phys.get("closestRusher"):
-        lines.append(f"• El rusher que más se acercó: {phys.get('closestRusher')} (pocket mínimo de {phys.get('minPocketRadius')} yardas).")
+    lines += [f"• {note}" for note in phys["coachingNotes"]]
     return "\n".join(lines)
 
 
-def _team_compact(ctx: dict[str, Any]) -> dict[str, Any]:
-    off = ctx.get("offense") or {}
-    return {
-        "equipo": ctx.get("teamName"),
-        "pistas_verificadas_defensa": ctx.get("attack_this_oline"),
-        "pistas_verificadas_ofensiva": ctx.get("beat_this_defense"),
-        "reloj_qb": ctx.get("qb_clock"),
-        "get_off_defensa_vs_liga": {"equipo": ctx.get("def_getoff_avg"), "liga": ctx.get("league_getoff_avg")},
-        "uso_play_action": ctx.get("pa_rate"),
-        "carriles_linea_ofensiva": off.get("ol_heatmap"),
-        "defensa": {k: v for k, v in (ctx.get("defense") or {}).items() if k != "top_rushers"},
-        "rushers_principales": (ctx.get("defense") or {}).get("top_rushers"),
-    }
-
-
-def generate_coach_brief(
-    mode: str,
-    context_data: dict[str, Any],
-    question: str = "",
-) -> dict[str, Any]:
-    """Llama a Amazon Nova (Bedrock Converse); si algo falla, devuelve el resumen determinista."""
+def generate_coach_brief(mode: str, context_data: dict[str, Any], question: str = "") -> dict[str, Any]:
+    """Call Amazon Nova via the Bedrock Converse API; fall back cleanly on any failure."""
     fallback_text = (
         _deterministic_team_brief(context_data) if mode == "team" else _deterministic_play_brief(context_data)
     )
@@ -101,44 +65,47 @@ def generate_coach_brief(
     model_id = os.environ.get("BEDROCK_MODEL_ID", "us.amazon.nova-pro-v1:0")
     region = os.environ.get("AWS_REGION", "us-east-1")
 
-    rules = (
-        "Responde en español, en 4 viñetas que empiecen con '•' (máximo 130 palabras), sin encabezados ni markdown. "
-        "Usa solo los números del JSON; no inventes cifras. Si una pista dice 'muestra chica' o 'tendencia', consérvalo. "
-        "No digas que el blitz en 3ro y largo es un golpe de gracia, no hables de 'rusher libre' ni describas los 3.5 s como un muro."
-    )
     if mode == "team":
-        compact = _team_compact(context_data)
-        system_prompt = (
-            "Eres asesor analítico de un coordinador de la NFL. Con métricas verificadas de tracking y PFF (2021, semanas 1–8), "
-            "escribe el plan de juego para el domingo contra este equipo. " + rules
-        )
-    else:
+        off = context_data["offense"]
         compact = {
-            "jugada": context_data.get("play"),
-            "fisica_del_pocket": context_data.get("physicsSummary"),
-            "rushers": [
-                {k: r.get(k) for k in ("name", "officialPos", "getoff", "generatedPressure", "sack")}
-                for r in context_data.get("roster", [])
-                if r.get("role") == "Pass Rush"
-            ],
+            "equipo": context_data["teamName"],
+            "ofensiva": {k: v for k, v in off.items() if k not in ("ol_heatmap", "weakest_lane")},
+            "carriles_linea_ofensiva": off["ol_heatmap"],
+            "reloj_qb": context_data.get("qb_clock"),
+            "defensa": context_data["defense"],
+            "pistas_verificadas_defensa": context_data["attack_this_oline"],
+            "pistas_verificadas_ofensiva": context_data["beat_this_defense"],
         }
         system_prompt = (
-            "Eres entrenador de la Sala de Video. Con tracking a 10 Hz y PFF, explica por qué el pocket aguantó o se cerró "
-            "y qué ajuste conviene en la siguiente serie. " + rules
+            "Responde en español. Eres asesor de análisis de un coordinador de la NFL. La tesis es "
+            "'La Guerra de los 3.5 Segundos': cada pase es una carrera entre el reloj del quarterback y el de los "
+            "pass rushers. Con las métricas verificadas (NFL 2021, semanas 1-8) escribe un plan de juego de 4 viñetas "
+            "(máximo 140 palabras), cada una empezando con '•', con números concretos y decisiones tácticas. "
+            "Usa SOLO los números del JSON; no inventes cifras. Las métricas marcadas como tendencia o muestra chica "
+            "deben decirlo. No digas que el play action sube el éxito (su ventaja es la jugada grande) y no llames "
+            "'precipicio' a los 3.5 s (es una zona de peligro)."
+        )
+    else:
+        compact = {"jugada": context_data["play"], "fisica": context_data["physicsSummary"]}
+        system_prompt = (
+            "Responde en español. Eres coach de la sala de video de la NFL y analizas tracking a 10 Hz y datos de PFF. "
+            "Escribe 4 viñetas (máximo 130 palabras), cada una empezando con '•', que expliquen POR QUÉ el pocket "
+            "aguantó o se cerró (reloj del QB, get-off de los rushers, protección) y qué ajuste hacer en la siguiente "
+            "serie. Usa SOLO los números del JSON; no inventes cifras."
         )
 
-    user_prompt = f"JSON de métricas:\n{json.dumps(compact, ensure_ascii=False)}"
+    user_prompt = f"Métricas JSON:\n{json.dumps(compact, ensure_ascii=False)}"
     if question.strip():
-        user_prompt += f"\n\nPregunta del coordinador: {question.strip()}"
+        user_prompt += f"\n\nPregunta específica del coach: {question.strip()}"
 
     try:
-        cfg = Config(connect_timeout=2, read_timeout=6, retries={"max_attempts": 1})
+        cfg = Config(connect_timeout=2, read_timeout=8, retries={"max_attempts": 1})
         client = boto3.client("bedrock-runtime", region_name=region, config=cfg)
         resp = client.converse(
             modelId=model_id,
             system=[{"text": system_prompt}],
             messages=[{"role": "user", "content": [{"text": user_prompt}]}],
-            inferenceConfig={"maxTokens": 360, "temperature": 0.3},
+            inferenceConfig={"maxTokens": 400, "temperature": 0.3},
         )
         content = resp.get("output", {}).get("message", {}).get("content", [])
         text = "".join(part.get("text", "") for part in content).strip()
