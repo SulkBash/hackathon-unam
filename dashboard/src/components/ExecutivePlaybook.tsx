@@ -827,12 +827,12 @@ export default function ExecutivePlaybook({ data, error, teams, qbClocks, teamSt
             <li><span className="text-pintura">"Cada QB tiene su propio reloj".</span> La caída del éxito después de 3.5 s por QB no se repite entre mitades de temporada: no se distingue del ruido. Lo que sí se repite es cuánto sostiene el balón.</li>
             <li><span className="text-pintura">"La doble marca deja un rusher libre".</span> Artefacto aritmético: PFF solo registra el primer defensor bloqueado, así que los stunts aparecen como dobles falsos.</li>
             <li><span className="text-pintura">"Estrellas invisibles" que atraen dobles.</span> La presión de los compañeros cuando un jugador recibe doble marca no se repite entre mitades de temporada.</li>
-            <li><span className="text-pintura">"Presión fantasma".</span> Rushers cerca del QB sin llegar a presionar: el efecto desaparece al comparar el mismo tiempo de lanzamiento.</li>
+            <li><span className="text-pintura">"Presión fantasma".</span> Rushers cerca del QB sin llegar a presionar: casi todo es el reloj. A igual tiempo de lanzamiento la brecha baja a menos de la mitad y deja de ser significativa.</li>
             <li><span className="text-pintura">"Tackles pesados pierden contra rushers ligeros".</span> Confusión por tipo de rusher (los ligeros son edges); con el mismo rusher, el efecto se invierte.</li>
-            <li><span className="text-pintura">"A los 3.5 s hay un muro".</span> No hay quiebre estadístico: el riesgo crece de forma continua y 3.5 s es un umbral útil para decidir.</li>
+            <li><span className="text-pintura">"A los 3.5 s hay un muro".</span> No hay un quiebre significativo: el riesgo crece de forma continua y 3.5 s es un umbral útil para decidir.</li>
             <li><span className="text-pintura">"Blitz en 3ro y largo, golpe de gracia".</span> Da más sacks, pero también más conversiones a la misma distancia.</li>
             <li><span className="text-pintura">"Rollout a la derecha".</span> Escogido a conveniencia. Lo defendible son los rollouts diseñados de ambos lados: {f1(pa?.rollout_sack)}% de sacks contra {f1(pa?.pocket_sack)}% en el pocket.</li>
-            <li><span className="text-pintura">Fatiga del rusher.</span> La presión sube con los snaps por sesgo de selección: las estrellas juegan más.</li>
+            <li><span className="text-pintura">Fatiga del rusher.</span> La presión no baja con los snaps del juego, ni siquiera comparando al mismo jugador.</li>
             <li><span className="text-pintura">Ruido del estadio.</span> Efecto mínimo.</li>
             <li><span className="text-pintura">Vulnerabilidad de un equipo a los stunts.</span> No se repite entre mitades de temporada.</li>
           </ul>
