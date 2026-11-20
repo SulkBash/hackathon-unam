@@ -915,7 +915,7 @@ class TrenchAnalytics:
                     out.append(self._format_play_summary(row, tag=tag, headline=headline))
                     return
 
-        # 1. Get-off que gana: sack by a DL rusher who got off in <= 0.6 s (prefer Garrett / Crosby, faster sack)
+        # 1. Get-off: sack by a DL rusher who got off in <= 0.6 s (prefer Garrett / Crosby, faster sack)
         fast = rt[(rt["sack"] == 1) & rt["officialPosition"].isin(DL_POS) & (rt["getoff"] <= 0.6)].copy()
         fast["star"] = fast["displayName"].isin(["Myles Garrett", "Maxx Crosby"]).astype(int)
         fast = fast.sort_values(["star", "getoff", "ttt"], ascending=[False, True, True])
@@ -923,20 +923,20 @@ class TrenchAnalytics:
             row = pm[(pm["gameId"] == fr["gameId"]) & (pm["playId"] == fr["playId"])]
             if len(row):
                 n0 = len(out)
-                pick(row, "GET-OFF QUE GANA", f"{fr['displayName']} arranca en {fr['getoff']:.1f} s y llega al sack")
+                pick(row, "GET-OFF", f"{fr['displayName']} arranca en {fr['getoff']:.1f} s y logra sack")
                 if len(out) > n0:
                     break
 
-        # 2. Play action congela: PA, no pressure, ttt >= 3.5, completion >= 15 yds
+        # 2. Play action: PA, no pressure, ttt >= 3.5, completion >= 15 yds
         c = pm[(pm["is_play_action"] == 1) & (pm["had_pressure"] == 0) & (pm["ttt"] >= 3.5)
                & (pm["passResult"] == "C") & (pm["playResult"] >= 15)]
         pick(c.sort_values("playResult", ascending=False), "PLAY ACTION",
-             "El amague congela a la defensa: pocket limpio y jugada grande")
+             "Play action sin presión y ganancia larga")
 
-        # 3. Zona de peligro: sack after 4.0 s
+        # 3. Después de 3.5 s: sack after 4.0 s
         c = pm[(pm["is_sack"] == 1) & (pm["ttt"] > 4.0) & (pm["ttt"] <= 5.0) & (pm["endEvent"] == "qb_sack")]
         c = c.assign(_k=(c["ttt"] - 4.5).abs()).sort_values(["_k", "playResult"])
-        pick(c, "ZONA DE PELIGRO", "Pasados los 3.5 s: el reloj del QB se acaba")
+        pick(c, "MÁS DE 3.5 S", "Sack tras sostener el balón más de 4 s")
 
         # 4. Stunt de 4: true 4-man DL stunt sack (avoid DB simulated-pressure blitzes; prefer 2-OL switch on 3rd & 7+)
         dl_sack_plays = rt[(rt["sack"] == 1) & rt["officialPosition"].isin(DL_POS)][["gameId", "playId"]].drop_duplicates()
@@ -947,27 +947,27 @@ class TrenchAnalytics:
             _sw=(c["n_stunts"] < 2).astype(int),
             _tl=(c["third_long"] == 0).astype(int),
         ).sort_values(["_ev", "_sw", "_tl", "ttt"])
-        pick(c, "STUNT DE 4", "Rush de 4 con stunt: sack sin mandar a nadie más")
+        pick(c, "STUNT DE 4", "Sack con rush de 4 y stunt")
 
         # 5. Blitz en 3ro y largo que termina en conversión
         c = pm[(pm["is_blitz"] == 1) & (pm["down"] == 3) & (pm["yardsToGo"] >= 7) & (pm["conversion"] == 1)]
         pick(c.sort_values("playResult", ascending=False), "BLITZ EN 3RO Y LARGO",
-             "Más sacks, pero también más conversiones")
+             "Blitz en 3ro y largo que termina en conversión")
 
         # 6. Pase rápido vence al blitz
         c = pm[(pm["is_blitz"] == 1) & (pm["ttt"] <= 2.3) & (pm["passResult"] == "C") & (pm["playResult"] >= 15)]
         pick(c.sort_values("playResult", ascending=False), "PASE RÁPIDO",
-             "El QB suelta antes de 2.3 s y le gana al blitz")
+             "Pase rápido (< 2.3 s) contra blitz")
 
         # 7. Aaron Donald sack
         ad = rt[(rt["displayName"] == "Aaron Donald") & (rt["sack"] == 1)]
         c = pm.merge(ad[["gameId", "playId"]].drop_duplicates(), on=["gameId", "playId"])
-        pick(c.sort_values("ttt"), "INTERIOR ÉLITE", "Aaron Donald parte el pocket por dentro")
+        pick(c.sort_values("ttt"), "PRESIÓN INTERIOR", "Sack interior de Aaron Donald")
 
         # 8. Spotlight NFL México (MIN / SF)
         c = pm[(pm["defensiveTeam"].isin(["MIN", "SF"])) & (pm["is_sack"] == 1)]
         c = c.assign(_k=(~c["endEvent"].isin(["qb_sack", "qb_strip_sack"])).astype(int)).sort_values(["_k", "ttt"])
-        pick(c, "SPOTLIGHT NFL MÉXICO", "Vikings / 49ers: sack de la línea defensiva")
+        pick(c, "NFL MÉXICO", "Sack de la línea defensiva (MIN / SF)")
         return out
 
     # ------------------------------------------------------------------ /api/team/{team}
@@ -1072,55 +1072,55 @@ class TrenchAnalytics:
         # Hints when YOUR defense faces this offense
         wl = weakest_lane
         attack_this_oline = [
-            f"Ataca el carril {wl['lane']} ({wl['starter']}): permitió presión en {wl['pressure_allowed_rate']}% de "
-            f"{wl['total_snaps']} bloqueos ({wl['sacks_allowed']} {'sack' if wl['sacks_allowed'] == 1 else 'sacks'}). "
-            f"Tendencia de 8 semanas.",
+            f"Ataca el carril {wl['lane']} ({wl['starter']}): {wl['pressure_allowed_rate']}% de presión permitida en "
+            f"{wl['total_snaps']} bloqueos ({wl['sacks_allowed']} {'sack' if wl['sacks_allowed'] == 1 else 'sacks'}; "
+            f"tendencia de 8 semanas).",
         ]
         if qb_clock["plays"]:
             if qb_clock["holds_ball"]:
                 attack_this_oline.append(
-                    f"Su QB {qb_clock['qb']} sostiene el balón más de 3.5 s en {qb_clock['late_share']}% de sus pases "
-                    f"(liga: {qb_clock['league_late_share']}%). Pasado ese punto los QB de la liga pierden "
-                    f"~{qb_clock['league_drop']} pts de éxito: cubre largo, rush de 4 con stunt y oblígalo a esperar.")
+                    f"{qb_clock['qb']} tarda más de 3.5 s en {qb_clock['late_share']}% de sus pases "
+                    f"(liga: {qb_clock['league_late_share']}%). Prioriza cobertura y rush de 4 con stunt: tras 3.5 s "
+                    f"el éxito cae ~{qb_clock['league_drop']} pts en la liga.")
             else:
                 attack_this_oline.append(
-                    f"Su QB {qb_clock['qb']} suelta rápido (mediana {qb_clock['ttt_median']} s; solo "
-                    f"{qb_clock['late_share']}% pasa de 3.5 s): no apuestes a la cobertura larga, gana con get-off.")
+                    f"{qb_clock['qb']} suelta rápido (mediana {qb_clock['ttt_median']} s; solo "
+                    f"{qb_clock['late_share']}% pasa de 3.5 s). La cobertura larga rinde menos: busca presión inmediata "
+                    f"con get-off.")
         best_plan = min(tl_plans.values(), key=lambda p: p["adj_delta"]) if tl_plans else None
         tls = g["blitz"]["third_long_sacks"]
         if blitz_tl["adj_delta"] > 0:
-            blitz_txt = (f"pero no baja las conversiones (a la misma distancia permite ~{_signed(blitz_tl['adj_delta'])} "
-                         f"pts de conversión)")
+            blitz_txt = f"pero también las conversiones ({_signed(blitz_tl['adj_delta'])} pts a igual distancia)"
         else:
-            blitz_txt = f"y baja las conversiones {_signed(blitz_tl['adj_delta'])} pts a la misma distancia"
+            blitz_txt = f"y reduce conversiones ({_signed(blitz_tl['adj_delta'])} pts a igual distancia)"
         best_txt = ""
         if best_plan is not None and best_plan["adj_delta"] < 0:
-            best_txt = (f" Ahí, el {best_plan['plan'].replace('4 ', 'rush de 4 ')} fue la mejor opción "
+            best_txt = (f" El {best_plan['plan'].replace('4 ', 'rush de 4 ')} rindió mejor "
                         f"({_signed(best_plan['adj_delta'])} pts vs rush de 4 sin stunt, muestra chica).")
         attack_this_oline.append(
-            f"En 3er down y 7+, el blitz da más sacks ({tls['blitz']}% vs {tls['rush4']}%) {blitz_txt}.{best_txt} "
-            f"Guarda el blitz para 1ro/2do y 3ro corto.")
+            f"En 3ro y 7+, el blitz sube los sacks ({tls['blitz']}% vs {tls['rush4']}%), {blitz_txt}.{best_txt} "
+            f"Reserva el blitz para 1ro/2do y 3ro corto.")
         attack_this_oline.append(
-            f"Su ofensiva usa play action en {pa_rate}% de sus pases (liga: {pa['pa_rate']}%, dato descriptivo): "
-            f"en la liga frena {pa['getoff_delta_adj']:.2f} s al rusher y dispara jugadas de 20+ yd "
+            f"Usa play action en {pa_rate}% de sus pases (liga: {pa['pa_rate']}%). En la liga retrasa "
+            f"{pa['getoff_delta_adj']:.2f} s al rusher y eleva las jugadas de 20+ yd "
             f"({pa['big_pa']}% vs {pa['big_expected']}%).")
 
         # Hints when YOUR offense faces this defense
         beat_this_defense = [
-            f"Play action para la jugada grande: en la liga, a la misma down y distancia, da {pa['big_pa']}% de "
-            f"jugadas de 20+ yardas vs {pa['big_expected']}% (mismo éxito). En el pocket sube los sacks a "
-            f"{pa['pa_no_rollout_sack']}%; con rollout diseñado bajan a {pa['pa_rollout_sack']}%, a cambio de "
-            f"menos jugadas grandes ({pa['pa_rollout_big']}% vs {pa['pa_no_rollout_big']}%).",
-            f"{team} blitzea en {team_blitz}% de los pases (liga: {league_blitz}%). No dejes al corredor solo "
-            f"recogiendo blitz: pierde {prot[1]['lost']}% de sus duelos (la línea, {prot[0]['lost']}%). Mandarlo a la "
-            f"ruta contra blitz no empeora el resultado.",
+            f"Usa play action para buscar yardas largas: en el mismo down y distancia genera {pa['big_pa']}% de "
+            f"jugadas de 20+ yd frente a {pa['big_expected']}% (mismo éxito). Con rollout diseñado los sacks bajan "
+            f"de {pa['pa_no_rollout_sack']}% a {pa['pa_rollout_sack']}% ({pa['pa_rollout_big']}% vs "
+            f"{pa['pa_no_rollout_big']}% de pases largos).",
+            f"{team} manda blitz en {team_blitz}% de los pases (liga: {league_blitz}%). Evita dejar al corredor solo "
+            f"bloqueando: pierde {prot[1]['lost']}% de duelos frente a {prot[0]['lost']}% de la línea; mandarlo a ruta "
+            f"no empeora el resultado.",
         ]
         if top_rushers:
             tr0 = top_rushers[0]
-            go_txt = f", get-off promedio {tr0['getoff_avg']} s" if tr0["getoff_avg"] is not None else ""
+            go_txt = f", get-off {tr0['getoff_avg']} s" if tr0["getoff_avg"] is not None else ""
             beat_this_defense.append(
-                f"Su rusher más peligroso es {tr0['displayName']} ({tr0['pressures']} presiones en {tr0['snaps']} "
-                f"snaps{go_txt}): diseña lecturas que salgan antes de 3.5 s hacia su lado.")
+                f"Principal amenaza: {tr0['displayName']} ({tr0['pressures']} presiones en {tr0['snaps']} "
+                f"snaps{go_txt}). Planifica lecturas rápidas (< 3.5 s) hacia su lado.")
 
         # Film room shortcuts
         def_highlights = def_plays.sort_values(["is_sack", "has_stunt", "total_pressures"], ascending=False).head(4)
@@ -1426,29 +1426,26 @@ class TrenchAnalytics:
                       "qb_sack": "hasta el sack", "qb_strip_sack": "hasta el sack",
                       "run": "antes de la carrera del QB", "fumble": "antes del balón suelto"}.get(end_event, "durante el dropback")
         notes = []
-        clock_note = f"Reloj: el QB {end_lbl} a los {ttt:.1f} s."
+        clock_note = f"El QB {end_lbl} a los {ttt:.1f} s."
         if bucket:
-            clock_note += (f" En la liga, en la franja {bucket['bucket']}: {bucket['sack']}% de sacks y "
-                           f"{bucket['success']}% de éxito.")
+            clock_note += f" En la liga ({bucket['bucket']}): {bucket['sack']}% sacks, {bucket['success']}% éxito."
         if ttt > LATE_T:
-            clock_note += " Zona de peligro: después de 3.5 s."
+            clock_note += " Superó los 3.5 s."
         notes.append(clock_note)
         if rushers:
             best = min(rushers, key=lambda m: m["getoff"])
             med = best.get("getoffMedian")
-            med_txt = f" (su mediana: {med:.2f} s)" if med is not None else ""
-            notes.append(f"Arranque más rápido: {best['name']}, {best['getoff']:.1f} s{med_txt}.")
+            med_txt = f", mediana {med:.2f} s" if med is not None else ""
+            notes.append(f"Arranque más rápido: {best['name']} ({best['getoff']:.1f} s{med_txt}).")
         if press_names:
-            notes.append(f"Presión de: {', '.join(press_names)}. El rusher más cercano llegó a "
-                         f"{round(min_pocket_radius, 1)} yd del QB {end_before}.")
+            notes.append(f"Presión de {', '.join(press_names)}. Distancia mínima al QB: "
+                         f"{round(min_pocket_radius, 1)} yd {end_before}.")
         else:
-            notes.append(f"Pocket limpio: ningún rusher se acercó a menos de {round(min_pocket_radius, 1)} yd "
-                         f"{end_before}.")
+            notes.append(f"Sin presión oficial; rusher más cercano a {round(min_pocket_radius, 1)} yd {end_before}.")
         if bool(prow["is_play_action"]):
             pa = self._guerra_cache["play_action"]
-            notes.append(f"Play action: en la liga el amague retrasa el arranque de cada rusher "
-                         f"{pa['getoff_delta_adj']:.2f} s (mismo jugador y situación), a cambio de que el QB tarde más "
-                         f"en soltar (mediana {pa['ttt_pa']} s vs {pa['ttt_no_pa']} s).")
+            notes.append(f"Play action: en la liga frena {pa['getoff_delta_adj']:.2f} s al rusher, pero alarga el "
+                         f"lanzamiento ({pa['ttt_pa']} s vs {pa['ttt_no_pa']} s).")
         if beaten_names:
             notes.append(f"Bloqueos perdidos: {', '.join(beaten_names[:3])}.")
 

@@ -31,8 +31,8 @@ def _deterministic_team_brief(gameplan: dict[str, Any]) -> str:
         rel_dir = "más rápido" if rel_s < 0 else ("más lento" if rel_s > 0 else "en el promedio")
         lines.append("")
         lines.append(
-            f"• Get-off de su línea defensiva: {dg['team_avg']} s de promedio (liga {dg['league_avg']} s; "
-            f"{rel_s:+.3f} s vs su grupo de posición, {rel_dir}). Tendencia, no rasgo fijo."
+            f"• Get-off defensivo: {dg['team_avg']} s de promedio (liga {dg['league_avg']} s; "
+            f"{rel_s:+.3f} s vs grupo, {rel_dir}; tendencia de equipo)."
         )
     lines.append(
         f"• Contexto: {off['plays']} pases de su ofensiva (presión permitida {off['pressure_allowed_rate']}%), "
@@ -77,21 +77,20 @@ def generate_coach_brief(mode: str, context_data: dict[str, Any], question: str 
             "pistas_verificadas_ofensiva": context_data["beat_this_defense"],
         }
         system_prompt = (
-            "Responde en español. Eres asesor de análisis de un coordinador de la NFL. La tesis es "
-            "'La Guerra de los 3.5 Segundos': cada pase es una carrera entre el reloj del quarterback y el de los "
-            "pass rushers. Con las métricas verificadas (NFL 2021, semanas 1-8) escribe un plan de juego de 4 viñetas "
-            "(máximo 140 palabras), cada una empezando con '•', con números concretos y decisiones tácticas. "
-            "Usa SOLO los números del JSON; no inventes cifras. Las métricas marcadas como tendencia o muestra chica "
-            "deben decirlo. No digas que el play action sube el éxito (su ventaja es la jugada grande) y no llames "
-            "'precipicio' a los 3.5 s (es una zona de peligro)."
+            "Responde en español con tono directo, sobrio y técnico (sin frases hechas ni adornos). Eres analista "
+            "de un cuerpo técnico de la NFL. Con las métricas verificadas (NFL 2021, semanas 1-8) redacta 4 viñetas "
+            "(máximo 140 palabras), cada una empezando con '•', con números concretos y ajustes tácticos. "
+            "Usa SOLO las cifras del JSON; no inventes datos. Indica cuando una métrica sea tendencia o muestra chica. "
+            "No digas que el play action sube el éxito (su efecto está en jugadas de 20+ yd) ni presentes los 3.5 s "
+            "como un salto abrupto."
         )
     else:
         compact = {"jugada": context_data["play"], "fisica": context_data["physicsSummary"]}
         system_prompt = (
-            "Responde en español. Eres coach de la sala de video de la NFL y analizas tracking a 10 Hz y datos de PFF. "
-            "Escribe 4 viñetas (máximo 130 palabras), cada una empezando con '•', que expliquen POR QUÉ el pocket "
-            "aguantó o se cerró (reloj del QB, get-off de los rushers, protección) y qué ajuste hacer en la siguiente "
-            "serie. Usa SOLO los números del JSON; no inventes cifras."
+            "Responde en español con tono directo y técnico, sin frases hechas. Analizas una jugada de NFL con tracking "
+            "a 10 Hz y PFF Scouting. Redacta 4 viñetas (máximo 130 palabras), cada una empezando con '•', explicando "
+            "por qué el pocket resistió o cedió (reloj del QB, get-off, protección) y qué ajuste conviene en la "
+            "siguiente serie. Usa SOLO los números del JSON."
         )
 
     user_prompt = f"Métricas JSON:\n{json.dumps(compact, ensure_ascii=False)}"

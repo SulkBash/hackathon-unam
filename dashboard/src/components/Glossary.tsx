@@ -2,31 +2,31 @@
 // Solo definiciones; ninguna estadística escrita a mano.
 
 const TERMS: [string, string][] = [
-  ['Pase / dropback', 'Cada jugada en la que el quarterback retrocede para lanzar. Analizamos solo estas jugadas.'],
-  ['Quarterback (QB)', 'El jugador que recibe el balón al inicio y decide a quién lanzarlo.'],
-  ['Pocket', 'La bolsa de protección que forma la línea ofensiva alrededor del QB.'],
-  ['Pass rusher', 'El defensor que corre hacia el QB para presionarlo o derribarlo.'],
-  ['Presión', 'Golpe, apuro o sack sobre el QB.'],
-  ['Sack', 'Derribar al QB con el balón antes de que lance.'],
-  ['Get-off', 'Cuánto tarda el rusher en arrancar tras el snap: segundos hasta que se movió 1 yarda.'],
-  ['Tiempo de lanzamiento', 'Segundos desde el snap hasta que el QB suelta el balón, es capturado o sale corriendo.'],
-  ['Blitz', 'Mandar 5 o más rushers (lo normal es 4).'],
-  ['Stunt', 'Dos rushers cruzan carriles para confundir a los bloqueadores.'],
-  ['Play action', 'Fingir una carrera antes de pasar.'],
-  ['Rollout', 'Jugada diseñada para que el QB salga del pocket hacia un lado antes de lanzar.'],
-  ['Éxito', 'Ganar 40% de la distancia en 1er down, 60% en 2do y 100% en 3ro o 4to.'],
-  ['Conversión', 'Ganar todas las yardas que faltaban para el primer down.'],
+  ['Pase / dropback', 'Jugada en la que el quarterback retrocede para lanzar. Todo el análisis cubre únicamente estas jugadas.'],
+  ['Quarterback (QB)', 'Jugador que recibe el balón al inicio de la jugada y decide el pase.'],
+  ['Pocket', 'Zona de protección que forma la línea ofensiva alrededor del QB.'],
+  ['Pass rusher', 'Defensor encargado de presionar o derribar al QB.'],
+  ['Presión', 'Golpe, apuro (hurry) o sack sobre el QB.'],
+  ['Sack', 'Derribo del QB con el balón antes de que logre lanzar.'],
+  ['Get-off', 'Segundos desde el snap hasta que el rusher recorre su primera yarda.'],
+  ['Tiempo de lanzamiento', 'Segundos desde el snap hasta el pase, sack o carrera del QB.'],
+  ['Blitz', 'Enviar 5 o más rushers contra el QB (el estándar son 4).'],
+  ['Stunt', 'Cruce de trayectorias entre dos rushers para desajustar el bloqueo.'],
+  ['Play action', 'Engaño de carrera antes de retroceder para pasar.'],
+  ['Rollout', 'Movimiento diseñado del QB hacia un costado fuera del pocket antes de lanzar.'],
+  ['Éxito', 'Ganar al menos 40% de las yardas faltantes en 1er down, 60% en 2do y 100% en 3ro o 4to.'],
+  ['Conversión', 'Conseguir todas las yardas necesarias para lograr un nuevo primer down.'],
   ['3er down y largo', 'Tercer intento con 7 o más yardas por avanzar.'],
-  ['Jugada grande', 'Un pase que gana 20 yardas o más.'],
-  ['Duelo perdido', 'El bloqueador permitió golpe, apuro o sack, o fue superado por su rival.'],
-  ['Edge e Interior', 'Edge: rushers de las orillas (DE y OLB). Interior: los del centro (DT y NT), que chocan con un bloqueador casi de inmediato.'],
+  ['Jugada grande', 'Jugada de pase que avanza 20 yardas o más.'],
+  ['Duelo perdido', 'Bloqueo en el que el liniero fue superado o permitió golpe, apuro o sack.'],
+  ['Edge e Interior', 'Edge: rushers exteriores (DE y OLB). Interior: linieros centrales (DT y NT), que enfrentan bloqueo inmediato.'],
 ]
 
 const RULES: [string, string][] = [
-  ['🟢 Robusto', 'El efecto se sostiene con controles de situación, al comparar al jugador contra sí mismo y entre mitades de temporada.'],
-  ['🟡 Moderado', 'La dirección es clara pero la muestra es chica o la significancia está en el límite. Úsalo como tendencia.'],
-  ['Ajustado por down y distancia', 'Comparamos contra jugadas en el mismo down y con las mismas yardas por avanzar, porque el éxito depende de la vara.'],
-  ['n', 'Cuántas jugadas o snaps hay detrás de cada número. Lo que tiene menos de 50 aparece en gris.'],
+  ['🟢 Robusto', 'Efecto consistente al controlar por situación, comparar al jugador contra sí mismo y verificar estabilidad entre mitades.'],
+  ['🟡 Moderado', 'Dirección clara, pero con muestra pequeña o significancia en el límite. Tomar como tendencia.'],
+  ['Ajustado por down y distancia', 'Comparación dentro del mismo down y yardas exactas por avanzar, ya que la exigencia cambia en cada situación.'],
+  ['n', 'Tamaño de muestra (jugadas o snaps) detrás de cada cifra. Los valores con n < 50 se muestran en gris.'],
 ]
 
 export default function Glossary() {
@@ -35,12 +35,12 @@ export default function Glossary() {
       <div className="grid grid-cols-12 gap-x-10 gap-y-6">
         <div className="col-span-12 lg:col-span-5">
           <h2 className="text-[44px] leading-[1.04] text-pintura">Cómo leer esto</h2>
-          <p className="mt-5 text-[19px] leading-relaxed text-slate-300">
-            No necesitas saber de fútbol americano. Cada pase es una carrera: el QB necesita tiempo para lanzar y los rushers
-            quieren quitárselo. Todo lo que verás es una forma de ganar o robar décimas de segundo.
+          <p className="mt-5 text-[18px] leading-relaxed text-slate-300">
+            Guía de términos de NFL y criterios estadísticos usados en el análisis.
           </p>
-          <p className="mt-5 text-[17px] leading-relaxed text-slate-300">
-            Piensa en el fútbol: el get-off es el arranque del delantero al espacio; el play action es el amague.
+          <p className="mt-4 text-[16px] leading-relaxed text-slate-400">
+            En cada jugada de pase, el quarterback busca tiempo para lanzar mientras la defensa intenta llegar antes. Las
+            métricas de este tablero cuantifican cuánto pesan esas décimas de segundo.
           </p>
         </div>
         <dl className="col-span-12 grid grid-cols-1 gap-x-10 gap-y-5 sm:grid-cols-2 lg:col-span-7">
@@ -54,10 +54,10 @@ export default function Glossary() {
       </div>
 
       <section className="border-t border-slate-800 pt-10">
-        <h3 className="text-[28px] text-pintura">Cómo decidimos qué mostrar</h3>
+        <h3 className="text-[28px] text-pintura">Criterios de evidencia</h3>
         <p className="mt-2 max-w-3xl text-[15px] text-slate-400">
-          Cada número sale de un cálculo sobre los datos del evento: tracking a 10 Hz de las semanas 1–8 de la temporada 2021 y el
-          scouting de PFF. Lo que no pasó estos filtros está en "Lo que descartamos", al final de El Reloj.
+          Todas las cifras se calculan sobre el tracking a 10 Hz y PFF Scouting (NFL 2021, semanas 1–8). Las hipótesis que no
+          superaron estos filtros aparecen en "Lo que descartamos", al final de El Reloj.
         </p>
         <dl className="mt-6 grid grid-cols-1 gap-x-10 gap-y-5 md:grid-cols-2">
           {RULES.map(([term, def]) => (

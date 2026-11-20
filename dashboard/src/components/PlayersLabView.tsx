@@ -232,30 +232,30 @@ export default function PlayersLabView({ data, qbClocks, guerra, onSelectTeam }:
       <section className="space-y-8">
         <div className="grid gap-8 lg:grid-cols-12">
           <div className="space-y-5 lg:col-span-4">
-            <h2 className="text-[28px] leading-tight text-pintura">El arranque es un rasgo del jugador, no una casualidad</h2>
+            <h2 className="text-[28px] leading-tight text-pintura">Arranque de los pass rushers (get-off)</h2>
             {stabilityGetoff !== undefined && stabilityGetoff !== null && (
               <div className="flex items-end gap-4">
                 <span className="tg-cifra text-[64px] text-pintura">{f1(stabilityGetoff, 2)}</span>
                 <p className="pb-1 text-base text-slate-300">
-                  correlación del get-off promedio de cada jugador entre las semanas 1–4 y 5–8
+                  correlación por jugador entre las semanas 1–4 y 5–8
                 </p>
               </div>
             )}
             <p className="max-w-[60ch] text-base text-slate-300">
-              Get-off: segundos desde el snap hasta que el rusher avanza 1 yarda. Solo se compara dentro del grupo:
-              el interior choca de inmediato con un bloqueador
+              Segundos desde el snap hasta avanzar 1 yarda. Se compara dentro de cada posición porque los interiores
+              enfrentan contacto inmediato
               {edgeMean !== null && interiorMean !== null && (
                 <>
                   {' '}
-                  (en esta lista, Edge promedia {f1(edgeMean, 2)} s e Interior {f1(interiorMean, 2)} s)
+                  (Edge: {f1(edgeMean, 2)} s · Interior: {f1(interiorMean, 2)} s)
                 </>
               )}
               .
             </p>
             {guerra?.getoff?.pp_per_tenth !== undefined && (
               <p className="max-w-[60ch] text-base text-slate-300">
-                Y arrancar antes que su propio promedio paga: ~{f1(guerra.getoff.pp_per_tenth)} pts de presión por cada
-                0.1 s (ver El Reloj).
+                Cada 0.1 s más rápido que su propia mediana aporta ~{f1(guerra.getoff.pp_per_tenth)} pts de presión (ver El
+                Reloj).
               </p>
             )}
             <Pills
@@ -344,8 +344,7 @@ export default function PlayersLabView({ data, qbClocks, guerra, onSelectTeam }:
                   </ResponsiveContainer>
                 </div>
                 <p className="mt-2 text-sm text-slate-400">
-                  Rushers de línea defensiva con al menos 150 snaps de pass rush · nombres: los 8 con más presión del filtro.
-                  Entre jugadores el get-off se compara solo dentro de su grupo.
+                  Linieros defensivos con ≥150 snaps de pass rush · etiquetas: los 8 con mayor % de presión en el filtro.
                 </p>
               </>
             )}
@@ -357,14 +356,14 @@ export default function PlayersLabView({ data, qbClocks, guerra, onSelectTeam }:
             <div className="flex flex-col gap-3 border-b border-slate-800 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h3 className="text-lg text-pintura">
-                  Tabla de get-off · {group === 'Todos' ? 'todos los grupos' : GROUP_LABEL[group]}
+                  Ranking de get-off · {group === 'Todos' ? 'todos los grupos' : GROUP_LABEL[group]}
                 </h3>
                 <p className="text-sm text-slate-400">
-                  Puntaje get-off: 0–100 dentro de su grupo (100 = el que arranca más rápido del grupo).
-                  {group === 'Todos' && ' Con «Todos», cada puntaje sigue siendo relativo a su propio grupo.'}
+                  Puntaje 0–100 relativo a cada grupo (100 = arranque más rápido).
+                  {group === 'Todos' && ' Cada jugador se evalúa frente a su propia posición.'}
                 </p>
               </div>
-              <SearchBox value={qDl} onChange={setQDl} placeholder="Busca jugador o equipo" />
+              <SearchBox value={qDl} onChange={setQDl} placeholder="Buscar jugador o equipo" />
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
@@ -416,7 +415,7 @@ export default function PlayersLabView({ data, qbClocks, guerra, onSelectTeam }:
             </div>
             <div className="flex flex-col gap-2 border-t border-slate-800 px-4 py-3 text-sm text-slate-400 sm:flex-row sm:items-center sm:justify-between">
               <span>
-                Strain (tipo STRAIN): versión simplificada; en parte es resultado (quien llega al QB acumula strain).
+                Strain: métrica simplificada tipo STRAIN (mide velocidad de cierre y cercanía al QB).
               </span>
               {tableRows.length > 30 && (
                 <button onClick={() => setShowAll((v) => !v)} className="tg-btn-secondary rounded-md px-3 py-1.5 font-semibold text-pintura">
@@ -434,41 +433,38 @@ export default function PlayersLabView({ data, qbClocks, guerra, onSelectTeam }:
       <section className="border-t border-slate-800 pt-10">
         <div className="grid gap-8 lg:grid-cols-12">
           <div className="space-y-5 lg:col-span-4">
-            <h2 className="text-[28px] leading-tight text-pintura">Sostener el balón es un hábito del QB</h2>
+            <h2 className="text-[28px] leading-tight text-pintura">Tiempo de lanzamiento por quarterback</h2>
             {league?.late_share !== undefined && (
               <div className="flex items-end gap-4">
                 <span className="tg-cifra text-[64px] text-pintura">
                   {f1(league.late_share)}
                   <span className="text-[32px]">%</span>
                 </span>
-                <p className="pb-1 text-base text-slate-300">de los pases de la liga salen después de 3.5 s</p>
+                <p className="pb-1 text-base text-slate-300">de los pases en la liga salen después de 3.5 s</p>
               </div>
             )}
             {league && league.success_early !== undefined && league.success_late !== undefined && (
               <p className="max-w-[60ch] text-base text-slate-300">
-                En la liga, el éxito cae de {f1(league.success_early)}% a {f1(league.success_late)}% (
-                {signed(league.success_late - league.success_early)} pts) cuando el pase sale después de 3.5 s.
+                En la liga, el éxito baja de {f1(league.success_early)}% a {f1(league.success_late)}% (
+                {signed(league.success_late - league.success_early)} pts) pasados los 3.5 s.
               </p>
             )}
             <p className="max-w-[60ch] text-base text-slate-300">
-              Cuánto sostiene el balón cada QB
-              {stabilityQb !== undefined && stabilityQb !== null
-                ? `: se repite entre mitades de temporada (${f1(stabilityQb, 2)}).`
-                : '.'}
+              Estabilidad del % &gt; 3.5 s entre mitades
+              {stabilityQb !== undefined && stabilityQb !== null ? `: r = ${f1(stabilityQb, 2)}.` : '.'}
             </p>
             <div className="flex flex-wrap items-center gap-5 text-sm text-slate-300">
               <span className="inline-flex items-center gap-2">
                 <span className="inline-block h-3 w-5 rounded-sm" style={{ background: TG.red }} />
-                Más que la liga
+                Por encima de la liga
               </span>
               <span className="inline-flex items-center gap-2">
                 <span className="inline-block h-3 w-5 rounded-sm" style={{ background: TG.neutral }} />
-                Menos que la liga
+                Por debajo de la liga
               </span>
             </div>
             <p className="max-w-[60ch] text-sm text-slate-400">
-              No mostramos el éxito antes y después de 3.5 s por QB: esa caída no se repite entre mitades de temporada
-              (ver «Lo que descartamos» en El Reloj).
+              Se omite la caída de éxito individual por QB porque no es estable entre mitades (ver Lo que descartamos).
             </p>
           </div>
 
@@ -534,8 +530,7 @@ export default function PlayersLabView({ data, qbClocks, guerra, onSelectTeam }:
                   </ResponsiveContainer>
                 </div>
                 <p className="mt-2 text-sm text-slate-400">
-                  Barra: % de sus dropbacks que pasan de 3.5 s · a la derecha: % y tiempo mediano hasta lanzar. QB con al
-                  menos 150 dropbacks.
+                  % de dropbacks &gt; 3.5 s y tiempo mediano de lanzamiento (QBs con ≥150 dropbacks).
                 </p>
               </>
             )}
@@ -548,17 +543,16 @@ export default function PlayersLabView({ data, qbClocks, guerra, onSelectTeam }:
       {/* ------------------------------------------------------------------ */}
       <section className="space-y-5 border-t border-slate-800 pt-10">
         <div className="max-w-[70ch] space-y-2">
-          <h2 className="text-[28px] leading-tight text-pintura">Los linieros que mantienen limpio el pocket</h2>
+          <h2 className="text-[28px] leading-tight text-pintura">Mejores bloqueadores de pase</h2>
           <p className="text-base text-slate-300">
-            Puntaje = 70% × % de bloqueos sin permitir presión + 30% × % sin ser vencido. Mínimo 150 bloqueos de pase.
-            Ranking descriptivo de 8 semanas.
+            Puntaje: 70% bloqueos sin presión + 30% sin ser vencido (≥150 bloqueos de pase, semanas 1–8).
           </p>
         </div>
 
         <div className="overflow-hidden rounded-lg border border-slate-800">
           <div className="flex flex-col gap-3 border-b border-slate-800 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <Pills options={['Todos', 'T', 'G', 'C'] as const} value={olPos} onChange={setOlPos} labels={OL_LABEL} />
-            <SearchBox value={qOl} onChange={setQOl} placeholder="Busca liniero o equipo" />
+            <SearchBox value={qOl} onChange={setQOl} placeholder="Buscar liniero o equipo" />
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">

@@ -1,50 +1,50 @@
 # La Guerra de los 3.5 Segundos
 
-> **Cómo ganar (o robar) décimas de segundo en cada pase** · NFL 2021, semanas 1–8 · Hackathon NFL Big Data Bowl, UNAM
+> Tiempo de lanzamiento y pass rush · NFL 2021, semanas 1–8 · Hackathon NFL Big Data Bowl, UNAM
 
-Cada pase es una carrera entre dos relojes: el del quarterback y el de los pass rushers. Medimos esa carrera con tracking a 10 Hz (**8,557 pases, 36,263 arranques de rusher, 122 juegos**) y la convertimos en decisiones concretas para coordinadores y jugadores.
+Análisis de la relación entre el tiempo de lanzamiento del quarterback y la presión defensiva a partir de tracking a 10 Hz (**8,557 pases, 36,263 snaps de pass rush, 122 partidos**) y PFF Scouting, estructurado para decisiones de coordinadores y jugadores.
 
 ## Hallazgo principal
 
-**Pasados 3.5 segundos, el pase entra en zona de peligro, y la carrera se gana por décimas.** Cada medio segundo que el QB sostiene el balón, el riesgo de sack se multiplica ~2.4×: de 5.1% (3.0–3.5 s) a 13.2% (3.5–4.0 s) y a 23.4% (4–5 s). Un rusher que arranca 0.1 s antes que su propio promedio suma ~0.9 puntos de presión (≈8% relativo), y el play action congela 0.12 s a cada rusher.
+**Pasados los 3.5 segundos, los sacks se aceleran rápidamente y las décimas definen la jugada.** Cada medio segundo extra que el QB sostiene el balón, la tasa de sack se multiplica ~2.4×: de 5.1% (3.0–3.5 s) a 13.2% (3.5–4.0 s) y 23.4% (4.0–5.0 s). En esa ventana, un rusher que arranca 0.1 s antes que su propia mediana aporta ~0.9 pts de presión (≈8% relativo), mientras el play action retrasa 0.12 s el arranque de cada rusher.
 
-| Hallazgo | Evidencia (ajustada: misma down y distancia, mismo jugador) | Confianza |
+| Hallazgo | Evidencia (ajustada: mismo down y distancia, mismo jugador) | Confianza |
 |---|---|:---:|
-| **Zona de peligro después de 3.5 s** | Sacks: 1.9% antes vs 19.2% después; éxito: 52.8% → 35.9%. Uno de cada cuatro pases (25.5%) llega ahí | 🟢 |
-| **El get-off gana** | Mismo jugador: 0.3 s antes que su mediana → 21.3% de presión; 0.3 s después → 7.4%. Es la métrica más estable del dataset (0.79 entre mitades de temporada) | 🟢 |
-| **El play action es el arma de la jugada grande** | Jugadas de 20+ yardas: 13.6% vs 7.7% esperado (1.8×), con el mismo éxito (54.1% vs 54.1%). El costo: más presión (37.8% vs 30.5%) | 🟢 |
-| **El blitz depende del down** | Ayuda en 1ro/2do (−2.3 pts de éxito rival) y en 3ro corto (−5.2). En 3ro y 7+ da más sacks (9.5% → 15.1%, z 2.6) pero **+4.5 pts de conversiones** (cuando el QB evita el sack: 42.5% vs 35.1%, z 2.2; con más cobertura hombre a hombre: 57.8% vs 27.1%), y ahí es justo donde más se usa (30% vs 22%) | 🟡 |
+| **Sacks y éxito después de 3.5 s** | Sacks: 1.9% antes vs 19.2% después; éxito: 52.8% → 35.9%. Uno de cada cuatro pases (25.5%) supera los 3.5 s | 🟢 |
+| **Arranque del rusher (get-off)** | Mismo jugador: 0.3 s antes que su mediana → 21.3% de presión; 0.3 s después → 7.4%. Métrica más estable del dataset (r = 0.79 entre mitades) | 🟢 |
+| **Play action y jugadas largas** | Jugadas de 20+ yardas: 13.6% vs 7.7% esperado (1.8×), sin cambio en éxito (54.1% vs 54.1%). Costo: más presión (37.8% vs 30.5%) | 🟢 |
+| **Efecto del blitz por down** | Reduce el éxito rival en 1ro/2do (−2.3 pts) y 3ro corto (−5.2). En 3ro y 7+ sube los sacks (9.5% → 15.1%, z = 2.6) pero también las conversiones (**+4.5 pts**; sin sack: 42.5% vs 35.1%, z = 2.2; cobertura hombre a hombre: 57.8% vs 27.1%), aunque ahí se manda más (30% vs 22%) | 🟡 |
 
 ![Pestaña "El Reloj": zona de peligro, get-off y play action](docs/el-reloj.png)
 
 ## Para quién y qué decisión cambia
 
-| Quién | Decisión | Respaldo |
+| Audiencia | Decisión | Respaldo |
 |---|---|---|
-| **Coordinador defensivo** | Blitz en 1ro/2do y 3ro corto, **no** en 3ro y largo. Ahí, rush de 4 con stunt | En 3ro y 7+, vs rush de 4 sin stunt (29.4% de conversión, n=541): 4 con stunt −4.6 pts (ee 3.1, muestra chica); blitz sin stunt −0.7; blitz con stunt +4.7 |
-| | Entrena y mide el get-off de cada rusher contra su propia mediana | 0.7–1.2 pts de presión por cada 0.1 s, con cualquier control (tabla abajo) |
-| | Ataca el carril más débil de la línea rival | El plan de juego de cada equipo muestra presión permitida por carril con su `n` (tendencia: se repite en 12 de 32 equipos, ~2× el azar) |
-| **Coordinador ofensivo** | Play action para la jugada grande; usa rollout diseñado si priorizas evitar sacks (con menos pases largos) | PA + rollout: 2.7% de sacks (10 de 365) vs 7.3% sin rollout (−4.9 pts, z −4.0), a cambio de 9.9% vs 14.4% de jugadas de 20+ yd (−5.1 pts, z −2.7) |
-| | No dejes al corredor solo recogiendo blitz | El RB que recoge blitz pierde 26.0% de sus duelos (800 duelos) vs 13.8% de la línea. Mandarlo a la ruta contra blitz no empeora: +4.0 pts de éxito (ee 2.4) |
-| | Diseña lecturas que salgan antes de 3.5 s | Liga: 52.8% de éxito antes vs 35.9% después |
-| **Jugadores** | Rusher: mejora tu get-off personal (comparado dentro de tu grupo: Edge ~0.75 s, Interior ~0.83 s) | Edge: +1.6 pts de presión por 0.1 s; Interior: +0.8 (con controles) |
-| | QB: controla cuánto sostienes el balón | El % de pases > 3.5 s es un rasgo del QB: se repite entre mitades de temporada (0.64) |
+| **Coordinador defensivo** | Reservar el blitz para 1ro/2do y 3ro corto; en 3ro y largo priorizar rush de 4 con stunt | En 3ro y 7+, vs rush de 4 sin stunt (29.4% de conversión, n = 541): 4 con stunt −4.6 pts (ee 3.1, muestra chica); blitz sin stunt −0.7; blitz con stunt +4.7 |
+| | Medir y entrenar el get-off de cada rusher frente a su propia mediana | 0.7–1.2 pts de presión por cada 0.1 s bajo todos los controles (ver tabla abajo) |
+| | Atacar el carril más vulnerable de la línea rival | El plan de juego muestra presión permitida por carril con su `n` (tendencia: se repite en 12 de 32 equipos, ~2× el azar) |
+| **Coordinador ofensivo** | Usar play action para buscar yardas largas; combinar con rollout diseñado si la prioridad es reducir sacks | PA + rollout: 2.7% de sacks (10 de 365) vs 7.3% desde el pocket (−4.9 pts, z = −4.0), con 9.9% vs 14.4% de jugadas de 20+ yd (−5.1 pts, z = −2.7) |
+| | Evitar dejar al corredor solo recogiendo blitz | El RB en recogida de blitz pierde 26.0% de sus duelos (n = 800) vs 13.8% de la línea. Enviarlo a ruta no empeora: +4.0 pts de éxito (ee 2.4) |
+| | Diseñar lecturas con salida antes de 3.5 s | Liga: 52.8% de éxito antes de 3.5 s vs 35.9% después |
+| **Jugadores** | Rusher: trabajar el get-off dentro del grupo posicional (Edge ~0.75 s, Interior ~0.83 s) | Edge: +1.6 pts de presión por 0.1 s; Interior: +0.8 (con controles) |
+| | QB: controlar el tiempo de retención del balón | El % de pases > 3.5 s es estable entre mitades de temporada (r = 0.64) |
 
-### La app
+### Vistas de la aplicación
 
-1. **El Reloj**: el hallazgo principal con sus cuatro tarjetas, la curva de la zona de peligro, el get-off dentro del mismo jugador, los planes de rush ajustados, el blitz por situación y el play action comparado contra lo esperado.
-2. **Plan de Juego (32 equipos)**: mapa de calor de los 5 carriles de la línea ofensiva (con `n` y presiones), el reloj del QB rival, el get-off de su defensa (tendencia), su uso de play action y pistas automáticas en español para ambos lados del balón. Botón opcional de **resumen del coordinador con Amazon Nova** (si la IA no está disponible, la app genera el mismo resumen con los datos).
-3. **Laboratorio de Jugadores**: get-off de cada pass rusher con filtro `Todos / Edge / Interior`, columna "Strain (tipo STRAIN)", relojes de los QB y ranking de la línea ofensiva.
-4. **Sala de Video 10 Hz**: cada jugada animada con un **reloj del pocket** (verde < 2.5 s, ámbar 2.5–3.5 s, rojo > 3.5 s), telemetría con las marcas de 3.5 s y del lanzamiento, el get-off de cada rusher en esa jugada y 8 jugadas destacadas.
-5. **Cómo leer esto**: glosario para quien no conoce la NFL. *Piensa en el fútbol: el get-off es el arranque del delantero al espacio; el play action es el amague.*
+1. **El Reloj**: resumen de hallazgos, curva de sacks y éxito por tiempo de lanzamiento, efecto del get-off por jugador, planes de rush ajustados, blitz por down y play action frente a lo esperado.
+2. **Plan de Juego**: perfil de cada uno de los 32 equipos con presión permitida por carril de línea ofensiva (`n` y presiones), reloj del QB rival, get-off defensivo (tendencia), uso de play action y ajustes tácticos. Incluye botón opcional de resumen con Amazon Nova (y respaldo analítico local).
+3. **Jugadores**: ranking de get-off con filtro `Todos / Edge / Interior`, columna Strain, tiempo de lanzamiento de quarterbacks y mejores bloqueadores de pase.
+4. **Sala de Video**: animación a 10 Hz con reloj del pocket, telemetría con marcas en 3.5 s y en el fin del dropback, get-off por rusher y 8 jugadas destacadas.
+5. **Cómo leer esto**: glosario de términos de NFL y criterios estadísticos para lectores sin experiencia previa en fútbol americano.
 
-## Cómo lo medimos
+## Metodología
 
-- **Datos**: NFL Big Data Bowl 2023: 8,557 dropbacks, 188,254 filas de scouting de PFF y tracking a 10 Hz de 122 juegos (811 MB), del snap al final del dropback.
-- **Pipeline reproducible**: [backend/pipeline/build_tracking_features.py](backend/pipeline/build_tracking_features.py) recorre el tracking y calcula, por jugada, el tiempo de lanzamiento y, por rusher, el get-off, la velocidad a 0.5 s, el strain y la distancia mínima al QB. La API carga esos archivos al arrancar y calcula todo en memoria. **Ningún número está escrito a mano**: todos salen de `GET /api/guerra`, `/api/qb-clocks`, `/api/players` y `/api/team/{equipo}`.
-- **Definiciones**: *presión* = golpe, apuro o sack; *éxito* = ganar 40% de la distancia en 1er down, 60% en 2do y 100% en 3ro/4to; *jugada grande* = 20+ yardas; *blitz* = 5+ rushers; *stunt* = la jugada tiene un switch (`SW`); *get-off* = segundos tras el snap hasta que el rusher se movió 1 yarda; *% de completos* = completos / intentos (sin contar sacks ni scrambles). Excluimos los 35 intentos de 2 puntos de todo cálculo de éxito.
-- **Comparar lo comparable**: todo lo que se usa más en un down que en otro (play action, blitz, stunts) se compara a la **misma down y yardas por avanzar exactas**, con errores estándar estratificados. Las métricas de jugador se miden **contra el propio jugador** (efectos fijos) y los rankings, **dentro de su grupo de posición**.
-- **El get-off resiste todos los controles** (puntos de presión por cada 0.1 s más rápido; base 11.0%; errores agrupados por jugador):
+- **Datos**: NFL Big Data Bowl 2023 (8,557 dropbacks, 188,254 registros de PFF Scouting y tracking a 10 Hz de 122 partidos, 811 MB).
+- **Pipeline reproducible**: [backend/pipeline/build_tracking_features.py](backend/pipeline/build_tracking_features.py) calcula por jugada el tiempo de lanzamiento y por rusher el get-off, velocidad a 0.5 s, strain y distancia mínima al QB. La API carga esos archivos al arrancar y computa todos los agregados en memoria (sin cifras escritas a mano en la UI).
+- **Definiciones**: *presión* = golpe, apuro o sack; *éxito* = 40% de las yardas en 1er down, 60% en 2do y 100% en 3ro/4to; *jugada grande* = 20+ yardas; *blitz* = 5+ rushers; *stunt* = jugada con switch (`SW`); *get-off* = segundos del snap a 1 yarda recorrida; *% completos* = completos / intentos (excluyendo sacks y scrambles). Se excluyen los 35 intentos de 2 puntos de todo cálculo de éxito.
+- **Controles**: las jugadas dependientes de situación (play action, blitz, stunts) se comparan dentro del **mismo down y yardas exactas por avanzar** con errores estándar estratificados. Las métricas de jugador usan efectos fijos por jugador y comparaciones dentro de su grupo posicional.
+- **Robustez del get-off** (puntos de presión por cada 0.1 s más rápido; base 11.0%; errores agrupados por jugador):
 
 | Controles | pts por 0.1 s | z |
 |---|---:|---:|
@@ -55,24 +55,24 @@ Cada pase es una carrera entre dos relojes: el del quarterback y el de los pass 
 | + blitz / stunt | 1.07 | 9.8 |
 | Contra sus compañeros en el mismo snap | 0.89 | 7.4 |
 
-- **Estabilidad**: solo mostramos como rasgo lo que se repite entre las semanas 1–4 y 5–8: get-off del jugador 0.79 · % de pases del QB > 3.5 s 0.64 · tiempo mediano del QB 0.50 · presión propia del rusher 0.31 (moderada). El get-off promedio de una defensa (0.42) y el carril débil de una línea se muestran como **tendencia**.
-- **Nota honesta**: 3.5 s es un umbral útil, no un precipicio. El éxito cae de forma continua (~8 pts por segundo) y un quiebre en 3.5 s no mejora de forma significativa a una recta (F = 2.9, p ≈ 0.09). Lo que crece rápido es el riesgo de sack: ×3.3, ×2.5, ×2.6 y ×1.6 en cada medio segundo entre 2.0 y 4.5 s.
+- **Estabilidad (semanas 1–4 vs 5–8)**: get-off por jugador r = 0.79 · % de pases del QB > 3.5 s r = 0.64 · mediana de lanzamiento del QB r = 0.50 · presión propia del rusher r = 0.31 (moderada). El get-off defensivo por equipo (r = 0.42) y el carril débil de la línea se etiquetan como **tendencia**.
+- **Alcance de los 3.5 s**: funciona como referencia operativa sobre una curva continua, no como un quiebre abrupto. El éxito cae ~8 pts por segundo y agregar un quiebre en 3.5 s no mejora significativamente una recta (F = 2.9, p ≈ 0.09); lo que se acelera es la tasa de sack (×3.3, ×2.5, ×2.6 y ×1.6 por cada 0.5 s entre 2.0 y 4.5 s).
 
 ## Lo que descartamos
 
-Hipótesis que probamos y no pasaron nuestro estándar de evidencia:
+Hipótesis evaluadas con los mismos datos que no cumplieron el estándar de evidencia:
 
-- **"Dos dobles en 5 contra 4 dejan un rusher libre el 100% de las veces"**: es aritmética (781 de 781 jugadas no podían salir distinto), y 53% de esas jugadas son stunts mal registrados, porque PFF solo anota el primer defensor que toca cada bloqueador.
-- **"Trench Gravity" (estrellas invisibles que atraen dobles)**: la presión de los compañeros cuando el jugador recibe doble no se repite entre mitades de temporada (−0.12).
-- **"El blitz en 3ro y largo es el golpe de gracia"**: da más sacks, pero también más conversiones (+4.5 pts a la misma distancia).
-- **"El rollout a la derecha da 6.4× menos sacks"**: escogido a conveniencia (derecha 1.1%, n=285; izquierda 5.4%, n=149). Lo defendible: rollouts diseñados de ambos lados, 2.5% vs 6.7% del pocket tradicional.
-- **"El play action sube el éxito de 47% a 54%"**: es un artefacto del down (40% de los pases de 1ro son play action vs 4% en 3ro, y en 1ro la vara es más baja). A la misma down y distancia: 54.1% vs 54.1%. Tampoco es cierto que "no cuesta presión": ajustado, son +7.3 pts.
-- **"Cada QB tiene su propio reloj"**: la caída de éxito de cada QB después de 3.5 s no se repite entre mitades (−0.14). Lo que sí es rasgo es cuánto sostiene el balón.
-- **"Los tackles pesados pierden contra rushers ligeros"** (15.0% vs 6.5% de duelos perdidos): confusión por tipo de rusher (96% de esos rivales son edges vs 14%). Con el mismo rusher, un tackle más pesado pierde **menos** (−0.9 pts por cada 10 lb, z −3.3).
-- **"Presión fantasma"** (un rusher a 2–3 yd sin llegar baja los completos: 64.9% vs 71.0%): casi todo es el reloj. Dentro de la misma franja de tiempo de lanzamiento la brecha baja a −2.6 pts y deja de ser significativa (ee 1.5).
-- **Fatiga del rusher**: la presión *sube* con los snaps del juego (11.3% en los primeros 10 vs 15.2% después de 30), incluso para el mismo jugador.
-- **Ruido del estadio**: efecto mínimo (presión permitida 37.7% de local vs 36.6% de visitante).
-- **Vulnerabilidad de un equipo a los stunts**: no se repite entre mitades (0.15).
+- **"Dos dobles en 5 contra 4 dejan un rusher libre el 100% de las veces"**: es aritmética (781 de 781 jugadas) y 53% son stunts mal clasificados porque PFF solo registra al primer defensor bloqueado.
+- **"Trench Gravity" (estrellas que generan presión indirecta)**: la presión de compañeros cuando un liniero recibe doble marca no es estable entre mitades (r = −0.12).
+- **"Blitz en 3ro y largo como jugada definitiva"**: eleva los sacks, pero también las conversiones (+4.5 pts a igual distancia).
+- **"Rollout a la derecha da 6.4× menos sacks"**: selección sesgada de un solo lado (derecha 1.1%, n = 285; izquierda 5.4%, n = 149). Considerando ambos lados: 2.5% vs 6.7% desde el pocket tradicional.
+- **"El play action sube el éxito de 47% a 54%"**: artefacto de down (40% en 1er down vs 4% en 3ro, donde la exigencia es distinta). En el mismo down y distancia: 54.1% vs 54.1%, con +7.3 pts de presión ajustada.
+- **"Cada QB cae distinto después de 3.5 s"**: la caída individual de éxito no se repite entre mitades (r = −0.14). Solo el tiempo que sostiene el balón es estable.
+- **"Tackles pesados pierden contra rushers ligeros"** (15.0% vs 6.5% de duelos perdidos): confusión por posición (96% de esos rivales son edges vs 14%). Frente al mismo rusher, más peso reduce las pérdidas (−0.9 pts por cada 10 lb, z = −3.3).
+- **"Presión fantasma"** (rusher a 2–3 yd sin presión oficial baja completos de 71.0% a 64.9%): explicado por el reloj; dentro de la misma franja de lanzamiento baja a −2.6 pts y deja de ser significativo (ee 1.5).
+- **Fatiga del rusher**: la presión aumenta con los snaps del partido (11.3% en los primeros 10 vs 15.2% tras 30), incluso comparando al mismo jugador.
+- **Ruido del estadio**: efecto mínimo (37.7% presión permitida de local vs 36.6% de visitante).
+- **Vulnerabilidad de equipo a stunts**: no es estable entre mitades (r = 0.15).
 
 ## Cómo correrlo
 

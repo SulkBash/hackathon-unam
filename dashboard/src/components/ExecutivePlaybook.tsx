@@ -228,27 +228,27 @@ export default function ExecutivePlaybook({ data, error, teams, qbClocks, teamSt
       {/* ------------------------------------------------------------------ HERO */}
       <div ref={ref} className="grid grid-cols-12 gap-x-10 gap-y-8 pt-6">
         <div className="col-span-12 lg:col-span-5">
-          <h2 className="text-[44px] leading-[1.04] text-pintura sm:text-[56px]">Cada pase es una carrera entre dos relojes</h2>
-          <p className="mt-6 max-w-[34rem] text-[19px] leading-relaxed text-slate-300">
-            El del quarterback y el de los pass rushers. Cada medio segundo que el QB sostiene el balón, el riesgo de sack se
-            multiplica {mult ? `~${f1(mult)}×` : ''}: de {pct0(b3035?.sack)} a {pct0(b3540?.sack)} después de 3.5 segundos, y a{' '}
-            {pct0(b4050?.sack)} después de 4. La carrera se gana por décimas: un rusher que arranca 0.1 s antes que su propio
-            promedio suma ~{f1(getoff?.pp_per_tenth)} puntos de presión (≈{relGain !== null ? Math.round(relGain) : '–'}% relativo), y
-            el play action congela {f1(pa?.getoff_delta_adj, 2)} s a cada rusher.
+          <h2 className="text-[44px] leading-[1.04] text-pintura sm:text-[56px]">Dos relojes en cada jugada de pase</h2>
+          <p className="mt-6 max-w-[34rem] text-[18px] leading-relaxed text-slate-300">
+            Cuando el quarterback tarda más de 3.5 s en soltar el balón, los sacks suben de {pct0(b3035?.sack)} a{' '}
+            {pct0(b3540?.sack)}, y llegan a {pct0(b4050?.sack)} pasados los 4 s ({mult ? `~${f1(mult)}×` : ''} cada medio
+            segundo). En esa ventana pesan las décimas: arrancar 0.1 s antes aporta ~{f1(getoff?.pp_per_tenth)} pts de
+            presión ({relGain !== null ? `≈${Math.round(relGain)}%` : '–'} relativo), y el play action retrasa{' '}
+            {f1(pa?.getoff_delta_adj, 2)} s a cada rusher.
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-4">
             <button type="button" className="tg-btn tg-btn-primary" onClick={onWatchDemo}>
-              Ver esta jugada en la Sala de Video
+              Ver esta jugada en video
             </button>
             <span className="text-[15px] text-slate-400">
-              {n0(headline?.plays)} pases, {n0(headline?.games)} partidos, {n0(headline?.rusher_snaps)} snaps de rusher
+              {n0(headline?.plays)} pases · {n0(headline?.games)} partidos · {n0(headline?.rusher_snaps)} snaps de rusher
             </span>
           </div>
         </div>
         <figure className="col-span-12 lg:col-span-7">
           <Trails t={t} height={400} />
           <figcaption className="mt-2 text-[15px] text-slate-400">
-            {JUGADA_DEMO.titulo}. {JUGADA_DEMO.contexto}. Rutas reales del tracking.
+            {JUGADA_DEMO.titulo} ({JUGADA_DEMO.contexto}). Trayectorias reales del tracking.
           </figcaption>
         </figure>
         <div className="col-span-12">
@@ -256,24 +256,24 @@ export default function ExecutivePlaybook({ data, error, teams, qbClocks, teamSt
             t={t}
             buckets={cliff.map((b) => ({ from: b.from, to: b.to, value: b.sack }))}
             markers={[
-              ...(pa ? [{ t: pa.getoff_no_pa, label: `Arranque promedio del rusher (${f1(pa.getoff_no_pa, 2)} s, sin play action)` }] : []),
-              ...(pa ? [{ t: pa.ttt_no_pa, label: `Lanzamiento mediano (${f1(pa.ttt_no_pa)} s, sin play action)` }] : []),
+              ...(pa ? [{ t: pa.getoff_no_pa, label: `Arranque promedio (${f1(pa.getoff_no_pa, 2)} s, sin PA)` }] : []),
+              ...(pa ? [{ t: pa.ttt_no_pa, label: `Lanzamiento mediano (${f1(pa.ttt_no_pa)} s, sin PA)` }] : []),
             ]}
           />
           <p className="mt-3 max-w-3xl text-[15px] text-slate-400">
-            Porcentaje de sacks según cuánto tarda el QB en soltar el balón, en {n0(totalPlays)} pases con tracking a 10 Hz. Cada
-            franja del campo es medio segundo; la línea amarilla marca los 3.5 s.
+            Tasa de sacks según tiempo de lanzamiento en {n0(totalPlays)} pases (tracking 10 Hz). Cada franja equivale a 0.5 s;
+            la línea amarilla marca los 3.5 s.
           </p>
         </div>
       </div>
 
       {/* ------------------------------------------------------- CUATRO HALLAZGOS */}
       <section className="border-t border-slate-800 pt-10">
-        <h3 className="text-[28px] text-pintura">Cuatro hallazgos para ganar (o robar) décimas</h3>
+        <h3 className="text-[28px] text-pintura">Hallazgos principales</h3>
         <div className="mt-8 grid grid-cols-1 gap-x-12 gap-y-10 md:grid-cols-2">
           <article className="border-t border-slate-800 pt-6">
             <div className="flex items-baseline justify-between gap-4">
-              <h4 className="text-[20px] text-pintura">Zona de peligro: después de 3.5 s</h4>
+              <h4 className="text-[20px] text-pintura">Sacks y éxito después de 3.5 s</h4>
               <Confianza nivel="robusto" />
             </div>
             <div className="mt-4 flex items-baseline gap-3">
@@ -282,15 +282,15 @@ export default function ExecutivePlaybook({ data, error, teams, qbClocks, teamSt
               <span className="tg-cifra text-[44px] text-peligro">{f1(sackAfter4)}%</span>
             </div>
             <p className="mt-3 text-[16px] leading-relaxed text-slate-300">
-              de sacks si el QB suelta antes de 3.5 s contra después de 4 s. El éxito del pase baja de {f1(successEarly)}% a{' '}
-              {f1(successLate)}% al pasar los 3.5 s. Es un umbral útil en una curva continua, no un muro.
+              de sacks antes de 3.5 s frente a más de 4 s. Al pasar 3.5 s, el éxito del pase baja de {f1(successEarly)}% a{' '}
+              {f1(successLate)}% en una curva continua.
             </p>
             <p className="mt-2 text-[14px] text-slate-400">n = {n0(totalPlays)} pases con tracking</p>
           </article>
 
           <article className="border-t border-slate-800 pt-6">
             <div className="flex items-baseline justify-between gap-4">
-              <h4 className="text-[20px] text-pintura">Get-off: el arranque decide</h4>
+              <h4 className="text-[20px] text-pintura">Arranque del rusher (get-off)</h4>
               <Confianza nivel="robusto" />
             </div>
             <div className="mt-4 flex items-baseline gap-3">
@@ -299,17 +299,17 @@ export default function ExecutivePlaybook({ data, error, teams, qbClocks, teamSt
               <span className="tg-cifra text-[44px] text-pintura">{f1(slow?.pressure)}%</span>
             </div>
             <p className="mt-3 text-[16px] leading-relaxed text-slate-300">
-              de presión del mismo rusher cuando arranca {fast?.label ?? 'antes'} que su mediana contra {slow?.label ?? 'después'}.
-              Cada 0.1 s antes suma ~{f1(getoff?.pp_per_tenth)} puntos sobre una base de {f1(getoff?.base_rate)}%.
+              de presión del mismo jugador al arrancar {fast?.label ?? 'antes'} que su mediana frente a {slow?.label ?? 'después'}.
+              Cada 0.1 s menos aporta ~{f1(getoff?.pp_per_tenth)} pts sobre una base de {f1(getoff?.base_rate)}%.
             </p>
             <p className="mt-2 text-[14px] text-slate-400">
-              n = {n0(goSnaps)} snaps de jugadores con 100+ snaps. Se repite entre mitades de temporada ({f1(getoff?.stability, 2)}).
+              n = {n0(goSnaps)} snaps (≥100 por jugador) · r = {f1(getoff?.stability, 2)} entre mitades
             </p>
           </article>
 
           <article className="border-t border-slate-800 pt-6">
             <div className="flex items-baseline justify-between gap-4">
-              <h4 className="text-[20px] text-pintura">Play action: el arma de la jugada grande</h4>
+              <h4 className="text-[20px] text-pintura">Play action y jugadas largas</h4>
               <Confianza nivel="robusto" />
             </div>
             <div className="mt-4 flex items-baseline gap-3">
@@ -318,16 +318,16 @@ export default function ExecutivePlaybook({ data, error, teams, qbClocks, teamSt
               <span className="tg-cifra text-[44px] text-azul">{f1(pa?.big_pa)}%</span>
             </div>
             <p className="mt-3 text-[16px] leading-relaxed text-slate-300">
-              de jugadas de 20+ yardas a la misma down y distancia ({bigRatio ? `${f1(bigRatio)}×` : '–'}), con el mismo éxito (
-              {f1(pa?.success_pa)}% vs {f1(pa?.success_expected)}%). Congela {f1(pa?.getoff_delta_adj, 2)} s a cada rusher, pero el
-              amague le cuesta tiempo al QB.
+              de jugadas de 20+ yardas en el mismo down y distancia ({bigRatio ? `${f1(bigRatio)}×` : '–'}), con igual éxito (
+              {f1(pa?.success_pa)}% vs {f1(pa?.success_expected)}%). Frena {f1(pa?.getoff_delta_adj, 2)} s al rusher, aunque
+              alarga el lanzamiento.
             </p>
-            <p className="mt-2 text-[14px] text-slate-400">Se usa en {f1(pa?.pa_rate)}% de los pases</p>
+            <p className="mt-2 text-[14px] text-slate-400">Frecuencia en la liga: {f1(pa?.pa_rate)}% de los pases</p>
           </article>
 
           <article className="border-t border-slate-800 pt-6">
             <div className="flex items-baseline justify-between gap-4">
-              <h4 className="text-[20px] text-pintura">El blitz depende del down</h4>
+              <h4 className="text-[20px] text-pintura">Efecto del blitz por down</h4>
               <Confianza nivel="moderado" />
             </div>
             <div className="mt-4 flex items-baseline gap-3">
@@ -336,13 +336,13 @@ export default function ExecutivePlaybook({ data, error, teams, qbClocks, teamSt
               <span className="tg-cifra text-[44px] text-peligro">{signed(blitz?.flip.third_long)}</span>
             </div>
             <p className="mt-3 text-[16px] leading-relaxed text-slate-300">
-              puntos de éxito del rival en 1ro y 2do contra puntos de conversión en 3ro y 7+, a la misma distancia. En 3ro y 7+ da
-              más sacks ({f1(blitz?.third_long_sacks.rush4)}% → {f1(blitz?.third_long_sacks.blitz)}%) pero también más conversiones,
-              y es justo donde más se usa ({pct0(third?.blitz_share)} vs {pct0(early?.blitz_share)}). Ahí, el rush de 4 con stunt fue
-              la mejor opción: {signed(stunt3?.adj_delta)} pts, muestra chica.
+              pts de éxito rival en 1ro/2do frente a conversiones en 3ro y 7+ a igual distancia. En 3ro y 7+ suben los sacks (
+              {f1(blitz?.third_long_sacks.rush4)}% → {f1(blitz?.third_long_sacks.blitz)}%) y también las conversiones, justo
+              donde más se manda ({pct0(third?.blitz_share)} vs {pct0(early?.blitz_share)}). Rush de 4 con stunt:{' '}
+              {signed(stunt3?.adj_delta)} pts (muestra chica).
             </p>
             <p className="mt-2 text-[14px] text-slate-400">
-              Diferencia entre situaciones: {f1(blitz?.flip.diff)} pts (z ≈ {f1(blitz?.flip.z)}), en el límite de la significancia
+              Diferencia entre situaciones: {f1(blitz?.flip.diff)} pts (z ≈ {f1(blitz?.flip.z)})
             </p>
           </article>
         </div>
@@ -350,11 +350,11 @@ export default function ExecutivePlaybook({ data, error, teams, qbClocks, teamSt
 
       {/* ------------------------------------------------------ (a) ZONA DE PELIGRO */}
       <Section
-        title="No hay un muro en 3.5 s: el éxito cae poco a poco y el sack se acelera"
+        title="Después de 3.5 s, el riesgo de sack se dispara mientras el éxito cae"
         note={
           <>
-            Barras: % de sacks. Líneas: % de éxito y % de jugadas de 20+ yardas. El éxito cae de forma continua; las jugadas grandes
-            llegan a su máximo entre {bigPeak?.bucket ?? '–'} ({f1(bigPeak?.big)}%), justo antes de la zona de peligro.
+            Barras: % de sacks. Líneas: % de éxito y jugadas de 20+ yardas. El éxito baja de forma continua; las jugadas largas
+            alcanzan su pico entre {bigPeak?.bucket ?? '–'} ({f1(bigPeak?.big)}%).
           </>
         }
       >
@@ -411,8 +411,8 @@ export default function ExecutivePlaybook({ data, error, teams, qbClocks, teamSt
 
       {/* ------------------------------------------------------ (b) GET-OFF */}
       <Section
-        title={goRatio ? `El mismo rusher genera ${f1(goRatio)} veces más presión cuando arranca antes` : 'El arranque del rusher decide la presión'}
-        note="Mismo jugador, contra su propia mediana: solo cambia su arranque. Get-off = segundos desde el snap hasta que el rusher se movió 1 yarda."
+        title={goRatio ? `Arrancar antes multiplica por ${f1(goRatio)} la presión del mismo rusher` : 'Presión según el arranque del rusher'}
+        note="Comparación de cada jugador contra su propia mediana de get-off (segundos desde el snap hasta avanzar 1 yarda)."
       >
         <div className="grid grid-cols-12 gap-x-10 gap-y-6">
           <div className="col-span-12 h-[300px] lg:col-span-8">
@@ -448,19 +448,18 @@ export default function ExecutivePlaybook({ data, error, teams, qbClocks, teamSt
             <div>
               <div className="tg-cifra text-[44px] text-pintura">+{f1(getoff?.pp_per_tenth)}</div>
               <p className="mt-1 text-[16px] text-slate-300">
-                puntos de presión por cada 0.1 s que arranca antes que su promedio (≈{relGain !== null ? Math.round(relGain) : '–'}%
-                relativo sobre {f1(getoff?.base_rate)}%).
+                pts de presión por cada 0.1 s más rápido que su promedio ({relGain !== null ? `≈${Math.round(relGain)}%` : '–'}{' '}
+                sobre una base de {f1(getoff?.base_rate)}%).
               </p>
             </div>
             {sit3 && sitRest && (
               <p className="text-[16px] leading-relaxed text-slate-300">
-                Se sostiene en {sit3.situation} ({f1(sit3.faster)}% más rápido vs {f1(sit3.slower)}% más lento) y en el resto ({f1(sitRest.faster)}% vs{' '}
-                {f1(sitRest.slower)}%).
+                El patrón se mantiene en {sit3.situation} ({f1(sit3.faster)}% rápido vs {f1(sit3.slower)}% lento) y en el resto
+                de jugadas ({f1(sitRest.faster)}% vs {f1(sitRest.slower)}%).
               </p>
             )}
             <p className="text-[15px] text-slate-400">
-              El get-off de cada jugador se repite entre las semanas 1–4 y 5–8 (correlación {f1(getoff?.stability, 2)}): es una
-              habilidad entrenable, no suerte.
+              Estabilidad entre semanas 1–4 y 5–8: r = {f1(getoff?.stability, 2)}. Es una métrica consistente de cada jugador.
             </p>
           </div>
         </div>
@@ -470,15 +469,15 @@ export default function ExecutivePlaybook({ data, error, teams, qbClocks, teamSt
       <Section
         title={
           stuntAndBlitzHelp
-            ? 'Stunt y blitz bajan el éxito del rival; el stunt de 4 lo intenta sin sacar gente de la cobertura'
-            : 'Cambio en el éxito del rival según el plan de rush'
+            ? 'Planes de presión: blitz sin stunt y rush de 4 con stunt'
+            : 'Éxito del rival según el plan de presión'
         }
-        note="Ajustado por down y distancia exacta. Stunt = dos rushers cruzan carriles. Blitz = 5 o más rushers. En gris, lo que no es significativo solo (|z| < 2)."
+        note="Diferencia frente al rush de 4 sin stunt, ajustada por down y distancia exacta. Stunt: cruce de dos rushers. Blitz: 5+ rushers. En gris, valores sin significancia individual (|z| < 2)."
       >
         <div className="grid grid-cols-12 gap-x-10 gap-y-6">
           <div className="col-span-12 lg:col-span-7">
             <p className="text-[14px] text-slate-300">
-              Cambio en éxito del rival vs rush de 4 sin stunt (negativo = mejor para la defensa)
+              Cambio en éxito rival vs rush de 4 sin stunt (negativo favorece a la defensa)
             </p>
             <div className="mt-2 h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
@@ -544,8 +543,8 @@ export default function ExecutivePlaybook({ data, error, teams, qbClocks, teamSt
             </table>
             {stunt4 && blitzNo && (
               <p className="mt-4 text-[15px] leading-relaxed text-slate-300">
-                El blitz sin stunt baja el éxito del rival {signed(blitzNo.adj_delta)} pts. El rush de 4 con stunt lo baja{' '}
-                {signed(stunt4.adj_delta)} pts sin sacar gente de la cobertura: es una tendencia, no significativa por sí sola.
+                El blitz sin stunt reduce el éxito rival en {signed(blitzNo.adj_delta)} pts. El rush de 4 con stunt apunta en la
+                misma dirección ({signed(stunt4.adj_delta)} pts) sin restar cobertura, aunque sin significancia estadística propia.
               </p>
             )}
             <p className="mt-2"><Confianza nivel="moderado" /></p>
@@ -555,18 +554,18 @@ export default function ExecutivePlaybook({ data, error, teams, qbClocks, teamSt
 
       {/* ------------------------------------------------------ (d) BLITZ POR SITUACIÓN */}
       <Section
-        title="El blitz ayuda en 1ro y 2do, y deja de pagar en 3ro y largo"
+        title="El blitz funciona en 1er y 2do down, pero se invierte en 3ro y largo"
         note={
           <>
-            Blitz menos rush de 3–4, a la misma yarda por avanzar exacta dentro de cada situación. En 3ro y 7+ el blitz da más sacks
-            ({f1(blitz?.third_long_sacks.rush4)}% → {f1(blitz?.third_long_sacks.blitz)}%) pero también más conversiones, y es justo donde
-            más se usa ({pct0(third?.blitz_share)} de las jugadas vs {pct0(early?.blitz_share)} en 1ro y 2do).
+            Blitz frente a rush de 3–4 a igual distancia exacta. En 3ro y 7+ genera más sacks ({f1(blitz?.third_long_sacks.rush4)}% →{' '}
+            {f1(blitz?.third_long_sacks.blitz)}%), pero también más conversiones, justo donde más se manda (
+            {pct0(third?.blitz_share)} vs {pct0(early?.blitz_share)} en 1ro y 2do).
           </>
         }
       >
         <div className="grid grid-cols-12 gap-x-10 gap-y-6">
           <div className="col-span-12 lg:col-span-7">
-            <p className="text-[14px] text-slate-300">Cambio en éxito del rival con blitz (negativo = mejor para la defensa)</p>
+            <p className="text-[14px] text-slate-300">Cambio en éxito o conversión rival con blitz (negativo favorece a la defensa)</p>
             <div className="mt-2 h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={sitRows} margin={{ top: 48, right: 8, left: 0, bottom: 4 }}>
@@ -598,7 +597,7 @@ export default function ExecutivePlaybook({ data, error, teams, qbClocks, teamSt
                       content={(p: unknown) => {
                         const g = p as LabelGeom
                         const hi = g.index === flipIdx
-                        return <DeltaLabel {...g} highlight={hi} extra={hi ? 'Aquí se invierte' : undefined} />
+                        return <DeltaLabel {...g} highlight={hi} extra={hi ? 'Se invierte' : undefined} />
                       }}
                     />
                   </Bar>
@@ -606,16 +605,16 @@ export default function ExecutivePlaybook({ data, error, teams, qbClocks, teamSt
               </ResponsiveContainer>
             </div>
             <p className="mt-2 text-[14px] text-slate-400">
-              Cada situación sola no es significativa; el cambio entre 1ro/2do y 3ro y 7+ ({f1(blitz?.flip.diff)} pts, z ≈ {f1(blitz?.flip.z)})
-              está en el límite. <Confianza nivel="moderado" />
+              Por separado ninguna barra es significativa; la diferencia entre 1ro/2do y 3ro y 7+ ({f1(blitz?.flip.diff)} pts, z ≈{' '}
+              {f1(blitz?.flip.z)}) queda al límite. <Confianza nivel="moderado" />
             </p>
           </div>
           <div className="col-span-12 lg:col-span-5">
             <div className="rounded-md border border-slate-800 p-5">
-              <h4 className="text-[18px] text-pintura">En 3ro y 7+: ¿qué plan baja las conversiones?</h4>
+              <h4 className="text-[18px] text-pintura">Opciones en 3ro y 7+</h4>
               <p className="mt-1 text-[14px] text-slate-400">
-                Contra rush de 4 sin stunt ({f1(plans3?.base.conversion)}% de conversión, n = {n0(plans3?.base.plays)}), a la misma
-                distancia exacta. Muestra chica, no concluyente.
+                Frente a rush de 4 sin stunt ({f1(plans3?.base.conversion)}% de conversión, n = {n0(plans3?.base.plays)}), a igual
+                distancia. Muestra chica.
               </p>
               <table className="mt-3 w-full text-left text-[14px] tabular-nums">
                 <thead className="text-slate-400">
@@ -639,8 +638,8 @@ export default function ExecutivePlaybook({ data, error, teams, qbClocks, teamSt
               </table>
               {stunt3 && (
                 <p className="mt-3 text-[15px] leading-relaxed text-slate-300">
-                  El rush de 4 con stunt fue la mejor estimación ({signed(stunt3.adj_delta)} pts) y coincide con el resultado de toda la
-                  liga, pero sola no es significativa.
+                  El rush de 4 con stunt tuvo el mejor estimado ({signed(stunt3.adj_delta)} pts), en línea con el dato global,
+                  pero sin significancia estadística propia.
                 </p>
               )}
             </div>
@@ -652,10 +651,10 @@ export default function ExecutivePlaybook({ data, error, teams, qbClocks, teamSt
       <Section
         title={
           sameSuccess && bigRatio
-            ? `El play action no cambia el éxito: compra jugadas grandes (${f1(bigRatio)}×)`
-            : 'Lo que cambia el play action'
+            ? `El play action multiplica por ${f1(bigRatio)} las jugadas de 20+ yardas`
+            : 'Efecto del play action'
         }
-        note="Comparado contra pases sin play action en el mismo down y distancia."
+        note="Comparado contra pases sin play action en el mismo down y distancia exacta."
       >
         <div className="grid grid-cols-12 gap-x-10 gap-y-6">
           <div className="col-span-12 h-[300px] lg:col-span-8">
@@ -668,7 +667,7 @@ export default function ExecutivePlaybook({ data, error, teams, qbClocks, teamSt
                   {...tgTooltip}
                   formatter={(v: unknown, name: unknown) => [`${f1(num(v))}%`, String(name)]}
                 />
-                <Bar dataKey="expected" name="Esperado sin play action" fill={TG.neutral} maxBarSize={48}>
+                <Bar dataKey="expected" name="Sin play action" fill={TG.neutral} maxBarSize={48}>
                   <LabelList dataKey="expected" position="top" fill={TG.muted} fontSize={13} formatter={(v: unknown) => `${f1(num(v))}%`} />
                 </Bar>
                 <Bar dataKey="pa" name="Con play action" fill={TG.blue} maxBarSize={48}>
@@ -677,7 +676,7 @@ export default function ExecutivePlaybook({ data, error, teams, qbClocks, teamSt
               </BarChart>
             </ResponsiveContainer>
             <div className="mt-2 flex flex-wrap gap-x-6 text-[14px] text-slate-300">
-              <span className="flex items-center gap-2"><span className="inline-block h-3 w-4" style={{ background: TG.neutral }} />Esperado sin play action (misma down y distancia)</span>
+              <span className="flex items-center gap-2"><span className="inline-block h-3 w-4" style={{ background: TG.neutral }} />Sin play action (mismo down y distancia)</span>
               <span className="flex items-center gap-2"><span className="inline-block h-3 w-4" style={{ background: TG.blue }} />Con play action</span>
             </div>
           </div>
@@ -685,16 +684,18 @@ export default function ExecutivePlaybook({ data, error, teams, qbClocks, teamSt
             <div>
               <div className="tg-cifra text-[44px] text-azul">{f1(pa?.getoff_delta_adj, 2)} s</div>
               <p className="mt-1 text-[16px] text-slate-300">
-                congela a cada rusher el amague (mismo jugador, misma down y distancia).
+                retrasa en promedio a cada rusher (mismo jugador, down y distancia).
               </p>
             </div>
             <p className="text-[16px] leading-relaxed text-slate-300">
-              El costo: el QB tarda más en soltar (mediana {f1(pa?.ttt_pa)} s vs {f1(pa?.ttt_no_pa)} s), así que hay más presión
-              ({f1(pa?.pressure_pa)}% vs {f1(pa?.pressure_expected)}%) y más sacks ({f1(pa?.sack_pa)}% vs {f1(pa?.sack_expected)}%).
+              A cambio, el QB tarda más en soltar ({f1(pa?.ttt_pa)} s vs {f1(pa?.ttt_no_pa)} s de mediana), lo que eleva la
+              presión ({f1(pa?.pressure_pa)}% vs {f1(pa?.pressure_expected)}%) y los sacks ({f1(pa?.sack_pa)}% vs{' '}
+              {f1(pa?.sack_expected)}%).
             </p>
             <p className="text-[16px] leading-relaxed text-slate-300">
-              Con rollout diseñado los sacks del play action bajan a {f1(pa?.pa_rollout_sack)}% ({n0(pa?.pa_rollout_n)} jugadas) contra{' '}
-              {f1(pa?.pa_no_rollout_sack)}% sin rollout. {f1(pa?.rollout_pa_share, 0)}% de los rollouts diseñados son play action.
+              Con rollout diseñado, los sacks en play action bajan a {f1(pa?.pa_rollout_sack)}% (n = {n0(pa?.pa_rollout_n)})
+              frente a {f1(pa?.pa_no_rollout_sack)}% desde el pocket. El {f1(pa?.rollout_pa_share, 0)}% de los rollouts usan
+              play action.
             </p>
             <Confianza nivel="robusto" />
           </div>
@@ -705,10 +706,10 @@ export default function ExecutivePlaybook({ data, error, teams, qbClocks, teamSt
       <Section
         title={
           puRatio
-            ? `El corredor que recoge el blitz pierde ${f1(puRatio)} veces más duelos que la línea`
-            : 'Eslabones débiles en la protección'
+            ? `El corredor recogiendo blitz pierde ${f1(puRatio)} veces más duelos que la línea`
+            : 'Puntos débiles en la protección'
         }
-        note="Duelo perdido = el bloqueador permitió golpe, apuro o sack, o fue superado. n = repeticiones de bloqueo."
+        note="Duelo perdido: el bloqueador fue superado o permitió golpe, apuro o sack."
       >
         <div className="max-w-3xl space-y-4">
           {(protection ?? []).map((p) => {
@@ -729,8 +730,8 @@ export default function ExecutivePlaybook({ data, error, teams, qbClocks, teamSt
             )
           })}
           <p className="pt-2 text-[15px] text-slate-400">
-            Mandar al corredor a la ruta contra el blitz no empeora el resultado; dejarlo solo recogiendo blitz es el punto débil.{' '}
-            <Confianza nivel="moderado" />
+            Mandar al corredor a ruta contra el blitz no empeora el resultado; dejarlo solo bloqueando es el punto más
+            vulnerable. <Confianza nivel="moderado" />
           </p>
         </div>
       </Section>
@@ -740,16 +741,16 @@ export default function ExecutivePlaybook({ data, error, teams, qbClocks, teamSt
         <Section
           title={
             clockR !== null && clockR > 0.3
-              ? 'Las ofensivas cuyo QB sostiene más el balón reciben más presión'
-              : 'Reloj del QB y presión permitida, equipo por equipo'
+              ? 'Los equipos cuyo QB tarda más en lanzar reciben más presión'
+              : 'Tiempo de lanzamiento y presión permitida por equipo'
           }
           note={
             <>
-              Cada punto es una ofensiva (8 semanas). Correlación entre los {clockTeams.length} equipos: r = {f1(clockR, 2)}.
+              Cada punto es una ofensiva en las 8 semanas (r = {f1(clockR, 2)} entre los {clockTeams.length} equipos).
               {teamStability?.off_late_share !== undefined && (
-                <> El % de pases después de 3.5 s se repite entre mitades de temporada ({f1(teamStability.off_late_share, 2)}).</>
+                <> Estabilidad del % &gt; 3.5 s entre mitades: r = {f1(teamStability.off_late_share, 2)}.</>
               )}{' '}
-              Haz clic en un equipo para abrir su plan de juego.
+              Haz clic en un equipo para ver su plan de juego.
             </>
           }
         >
@@ -819,22 +820,22 @@ export default function ExecutivePlaybook({ data, error, teams, qbClocks, teamSt
         <div className="rounded-md border border-slate-800 p-6 sm:p-8">
           <h3 className="text-[28px] text-pintura">Lo que descartamos</h3>
           <p className="mt-2 max-w-3xl text-[15px] text-slate-400">
-            Hipótesis que probamos con los mismos datos y no pasaron el estándar de evidencia: comparar a la misma down y distancia, al
-            mismo tiempo de lanzamiento, al jugador contra sí mismo, y que se repitan entre mitades de temporada.
+            Hipótesis probadas con los mismos datos que no superaron los controles de situación, tiempo de lanzamiento, efectos
+            fijos por jugador o estabilidad entre mitades.
           </p>
           <ul className="mt-6 grid grid-cols-1 gap-x-10 gap-y-4 text-[15px] leading-relaxed text-slate-300 md:grid-cols-2">
-            <li><span className="text-pintura">"El play action sube el éxito".</span> Es un efecto del down: se usa mucho más en 1ro, donde la vara es más baja. A la misma down y distancia, {f1(pa?.success_pa)}% contra {f1(pa?.success_expected)}% esperado.</li>
-            <li><span className="text-pintura">"Cada QB tiene su propio reloj".</span> La caída del éxito después de 3.5 s por QB no se repite entre mitades de temporada: no se distingue del ruido. Lo que sí se repite es cuánto sostiene el balón.</li>
-            <li><span className="text-pintura">"La doble marca deja un rusher libre".</span> Artefacto aritmético: PFF solo registra el primer defensor bloqueado, así que los stunts aparecen como dobles falsos.</li>
-            <li><span className="text-pintura">"Estrellas invisibles" que atraen dobles.</span> La presión de los compañeros cuando un jugador recibe doble marca no se repite entre mitades de temporada.</li>
-            <li><span className="text-pintura">"Presión fantasma".</span> Rushers cerca del QB sin llegar a presionar: casi todo es el reloj. A igual tiempo de lanzamiento la brecha baja a menos de la mitad y deja de ser significativa.</li>
-            <li><span className="text-pintura">"Tackles pesados pierden contra rushers ligeros".</span> Confusión por tipo de rusher (los ligeros son edges); con el mismo rusher, el efecto se invierte.</li>
-            <li><span className="text-pintura">"A los 3.5 s hay un muro".</span> No hay un quiebre significativo: el riesgo crece de forma continua y 3.5 s es un umbral útil para decidir.</li>
-            <li><span className="text-pintura">"Blitz en 3ro y largo, golpe de gracia".</span> Da más sacks, pero también más conversiones a la misma distancia.</li>
-            <li><span className="text-pintura">"Rollout a la derecha".</span> Escogido a conveniencia. Lo defendible son los rollouts diseñados de ambos lados: {f1(pa?.rollout_sack)}% de sacks contra {f1(pa?.pocket_sack)}% en el pocket.</li>
-            <li><span className="text-pintura">Fatiga del rusher.</span> La presión no baja con los snaps del juego, ni siquiera comparando al mismo jugador.</li>
-            <li><span className="text-pintura">Ruido del estadio.</span> Efecto mínimo.</li>
-            <li><span className="text-pintura">Vulnerabilidad de un equipo a los stunts.</span> No se repite entre mitades de temporada.</li>
+            <li><span className="text-pintura">"El play action sube la tasa de éxito".</span> Efecto del down: se usa mucho más en 1er down, donde el umbral de éxito es menor. En el mismo down y distancia: {f1(pa?.success_pa)}% vs {f1(pa?.success_expected)}%.</li>
+            <li><span className="text-pintura">"Cada QB cae distinto después de 3.5 s".</span> La caída de éxito individual no es estable entre mitades; solo el tiempo que sostiene el balón se mantiene.</li>
+            <li><span className="text-pintura">"Dos bloqueos dobles dejan un rusher libre".</span> Artefacto de registro: PFF anota solo el primer defensor bloqueado, por lo que los stunts figuran como dobles falsos.</li>
+            <li><span className="text-pintura">"Estrellas invisibles" (gravity).</span> La presión de compañeros cuando un liniero recibe doble marca no es estable entre mitades.</li>
+            <li><span className="text-pintura">"Presión fantasma".</span> Rushers a 2–3 yd sin presión oficial: al controlar por tiempo de lanzamiento, la brecha deja de ser significativa.</li>
+            <li><span className="text-pintura">"Tackles pesados pierden contra rushers ligeros".</span> Confusión por posición (los ligeros son edges). Frente al mismo rusher, el efecto se invierte.</li>
+            <li><span className="text-pintura">"En 3.5 s hay un quiebre abrupto".</span> No existe un cambio de pendiente significativo; el riesgo sube de forma continua y 3.5 s funciona como referencia práctica.</li>
+            <li><span className="text-pintura">"Blitz en 3ro y largo como jugada definitiva".</span> Sube los sacks, pero también las conversiones a igual distancia.</li>
+            <li><span className="text-pintura">"Rollout a la derecha".</span> Selección sesgada de un solo lado. Considerando ambos lados, los rollouts diseñados registran {f1(pa?.rollout_sack)}% de sacks frente a {f1(pa?.pocket_sack)}% desde el pocket.</li>
+            <li><span className="text-pintura">Fatiga del rusher.</span> La presión no cae al acumular snaps en el partido, incluso dentro del mismo jugador.</li>
+            <li><span className="text-pintura">Ruido del estadio.</span> Diferencia mínima entre local y visitante.</li>
+            <li><span className="text-pintura">Vulnerabilidad de equipo a stunts.</span> No se mantiene entre semanas 1–4 y 5–8.</li>
           </ul>
         </div>
       </section>

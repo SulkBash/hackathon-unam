@@ -10,9 +10,9 @@ type TabId = 'reloj' | 'plan' | 'jugadores' | 'video' | 'glosario'
 
 const TABS: [TabId, string][] = [
   ['reloj', '1. El Reloj'],
-  ['plan', '2. Plan de Juego (32 equipos)'],
-  ['jugadores', '3. Laboratorio de Jugadores'],
-  ['video', '4. Sala de Video 10 Hz'],
+  ['plan', '2. Plan de Juego'],
+  ['jugadores', '3. Jugadores'],
+  ['video', '4. Sala de Video'],
   ['glosario', 'Cómo leer esto'],
 ]
 
@@ -102,7 +102,7 @@ export default function App() {
         <div className="mx-auto flex max-w-7xl flex-col gap-x-10 px-5 2xl:flex-row 2xl:items-end 2xl:justify-between">
           <div className="pt-4 2xl:pb-4">
             <h1 className="text-[22px] leading-tight text-pintura">La Guerra de los 3.5 Segundos</h1>
-            <p className="text-[14px] text-slate-400">Cómo ganar (o robar) décimas de segundo en cada pase. NFL 2021, semanas 1–8.</p>
+            <p className="text-[14px] text-slate-400">Tiempo de lanzamiento y pass rush · NFL 2021, semanas 1–8</p>
           </div>
           <nav role="tablist" aria-label="Secciones" className="-mb-px flex flex-wrap gap-x-7 overflow-x-auto">
             {TABS.map(([id, label]) => (
@@ -143,7 +143,7 @@ export default function App() {
             (players.data ? (
               <PlayersLabView data={players.data} qbClocks={qbClocks.data} guerra={guerra.data} onSelectTeam={handleSelectTeam} />
             ) : (
-              <Pendiente error={players.error} que="el laboratorio de jugadores" />
+              <Pendiente error={players.error} que="los datos de jugadores" />
             ))}
           {tab === 'video' && <TrenchFilmRoom initialPlay={selectedPlay} teams={teams} />}
           {tab === 'glosario' && <Glossary />}
@@ -152,8 +152,7 @@ export default function App() {
 
       <footer className="border-t border-slate-800 py-6">
         <div className="mx-auto max-w-7xl px-5 text-[13px] text-slate-400">
-          La Guerra de los 3.5 Segundos. Datos del NFL Big Data Bowl: temporada 2021, semanas 1–8, tracking a 10 Hz y scouting de
-          PFF. Hackathon UNAM.
+          Datos: NFL Big Data Bowl (temporada 2021, semanas 1–8), tracking a 10 Hz y PFF Scouting · Hackathon UNAM
         </div>
       </footer>
     </div>

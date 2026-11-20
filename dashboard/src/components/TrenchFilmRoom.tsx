@@ -219,8 +219,8 @@ function buildNotes(tr: PlayTrackingData, timing: Timing, capped: Capped): strin
   if (timing.ttt !== null) {
     notes.push(
       timing.ttt > THRESHOLD
-        ? `El dropback terminó (${timing.endLabel.toLowerCase()}) a los ${f1(timing.ttt)} s: ya en la zona de peligro, después de 3.5 s.`
-        : `El dropback terminó (${timing.endLabel.toLowerCase()}) a los ${f1(timing.ttt)} s, antes de la zona de peligro de 3.5 s.`,
+        ? `Dropback terminado (${timing.endLabel.toLowerCase()}) a los ${f1(timing.ttt)} s, pasados los 3.5 s.`
+        : `Dropback terminado (${timing.endLabel.toLowerCase()}) a los ${f1(timing.ttt)} s, antes de 3.5 s.`,
     )
   }
   const press = tr.roster.filter((r) => r.generatedPressure).map((r) => r.name)
@@ -601,10 +601,10 @@ export default function TrenchFilmRoom({ initialPlay, teams }: Props) {
       <section>
         <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl">
-            <h2 className="text-[28px] leading-tight text-slate-50">Elige una jugada y mira el reloj</h2>
+            <h2 className="text-[28px] leading-tight text-slate-50">Sala de Video (tracking 10 Hz)</h2>
             <p className="mt-1 text-base text-slate-300">
-              Tracking real de la NFL a 10 cuadros por segundo. El reloj se detiene cuando termina el dropback; lo que pasa
-              después se ve en gris y no cuenta para el pocket.
+              Reconstrucción cuadro a cuadro. El reloj se detiene al concluir el dropback; los cuadros posteriores aparecen en
+              gris y no entran en las métricas del pocket.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -949,7 +949,7 @@ export default function TrenchFilmRoom({ initialPlay, teams }: Props) {
                       : currentFrame.t < 0
                         ? 'Antes del snap'
                         : crossed
-                          ? 'Zona de peligro: después de 3.5 s'
+                          ? 'Pasados 3.5 s'
                           : 'Desde el snap'}
                   </div>
                 </div>
@@ -963,7 +963,7 @@ export default function TrenchFilmRoom({ initialPlay, teams }: Props) {
 
                 {afterEnd && (
                   <div className="pointer-events-none absolute bottom-8 right-4 rounded-sm bg-slate-950/90 px-2 py-1 text-[13px] text-slate-300">
-                    Después de {endWord}: fuera del conteo del pocket
+                    Después de {endWord} (fuera de medición)
                   </div>
                 )}
 
@@ -1057,7 +1057,7 @@ export default function TrenchFilmRoom({ initialPlay, teams }: Props) {
                     }}
                     className="tg-btn tg-btn-secondary"
                   >
-                    Ir al momento de mayor cierre
+                    Ir al cierre máximo
                   </button>
                 )}
               </div>
@@ -1108,12 +1108,12 @@ export default function TrenchFilmRoom({ initialPlay, teams }: Props) {
           {tracking && timing && !trackError && (
             <>
               <div>
-                <h3 className="text-xl text-slate-50">El pocket, cuadro por cuadro</h3>
+                <h3 className="text-xl text-slate-50">Telemetría del pocket</h3>
                 <p className="mt-1 text-[13px] text-slate-400">
-                  Medido solo hasta {endWord}; después, en gris. Tracking a 10 Hz.
+                  Medido hasta {endWord}; después aparece en gris.
                 </p>
                 <div className="mt-3">
-                  <div className="text-[13px] font-medium text-slate-300">Espacio del QB: distancia al rusher más cercano (yd)</div>
+                  <div className="text-[13px] font-medium text-slate-300">Distancia al rusher más cercano (yd)</div>
                   <MiniChart
                     data={chartData}
                     preKey="radioPre"
@@ -1129,7 +1129,7 @@ export default function TrenchFilmRoom({ initialPlay, teams }: Props) {
                     collapseLine
                     showXAxis={false}
                   />
-                  <div className="mt-2 text-[13px] font-medium text-slate-300">Velocidad de cierre del rusher más rápido (yd/s)</div>
+                  <div className="mt-2 text-[13px] font-medium text-slate-300">Velocidad de cierre máxima (yd/s)</div>
                   <MiniChart
                     data={chartData}
                     preKey="cierrePre"
@@ -1174,10 +1174,10 @@ export default function TrenchFilmRoom({ initialPlay, teams }: Props) {
 
               {/* Rushers con su get-off en esta jugada */}
               <div className="border-t border-slate-800 pt-6">
-                <h3 className="text-xl text-slate-50">Rushers de esta jugada</h3>
+                <h3 className="text-xl text-slate-50">Pass rushers en la jugada</h3>
                 <p className="mt-1 text-[13px] text-slate-400">
-                  Get-off: segundos desde el snap hasta que el rusher se movió 1 yarda.
-                  {!anyGetoff && ' No disponible para esta jugada.'}
+                  Get-off: segundos del snap a 1 yarda recorrida.
+                  {!anyGetoff && ' Sin dato en esta jugada.'}
                 </p>
                 <ul className="mt-3 divide-y divide-slate-800">
                   {rushers.map((r) => (
@@ -1218,7 +1218,7 @@ export default function TrenchFilmRoom({ initialPlay, teams }: Props) {
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <h3 className="text-xl text-slate-50">Notas de la jugada</h3>
                   <button onClick={requestPlayBrief} disabled={briefLoading} className="tg-btn tg-btn-secondary disabled:opacity-50">
-                    {briefLoading ? 'Generando…' : 'Resumen de la jugada (IA opcional)'}
+                    {briefLoading ? 'Generando…' : 'Resumen IA (opcional)'}
                   </button>
                 </div>
                 <ul className="mt-3 space-y-2 text-[15px] leading-relaxed text-slate-300">
@@ -1248,7 +1248,7 @@ export default function TrenchFilmRoom({ initialPlay, teams }: Props) {
         <h3 className="text-xl text-slate-50">Más jugadas</h3>
         <p className="mt-1 text-[13px] text-slate-400">
           {CATEGORIES.find((c) => c.id === filterCat)?.label ?? 'Todas las jugadas'}
-          {filterTeam ? ` · ${filterTeam}` : ''} · {filteredPlays.length} jugadas. Haz clic en una fila para cargar su tracking.
+          {filterTeam ? ` · ${filterTeam}` : ''} · {filteredPlays.length} jugadas. Selecciona una fila para verla.
         </p>
         <div className="mt-3 max-h-72 overflow-y-auto rounded border border-slate-800">
           {listError ? (
