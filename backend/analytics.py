@@ -118,7 +118,11 @@ def strat_adjust(df: pd.DataFrame, treat: pd.Series, ctrl: pd.Series, outcome: s
     w = tt["size"] / n
     actual = float((w * tt["mean"]).sum())
     expected = float((w * tt["c_mean"]).sum())
-    var = float((w ** 2 * (tt["var"].fillna(0) / tt["size"] + tt["c_var"].fillna(0) / tt["c_size"])).sum())
+    vt_pool = float(t[outcome].var()) if len(t) > 1 else 0.0
+    vc_pool = float(c[outcome].var()) if len(c) > 1 else 0.0
+    vt = tt["var"].fillna(0.0 if np.isnan(vt_pool) else vt_pool)
+    vc = tt["c_var"].fillna(0.0 if np.isnan(vc_pool) else vc_pool)
+    var = float((w ** 2 * (vt / tt["size"] + vc / tt["c_size"])).sum())
     se = float(np.sqrt(var))
     delta = actual - expected
     return {
@@ -326,6 +330,8 @@ class TrenchAnalytics:
         self.player_getoff_median: dict[int, float] = (
             dl.groupby("nflId")["getoff"].median().round(2).to_dict()
         )
+        dlt = dl.assign(rel=dl["getoff"] - dl["group_mean"])
+        self._team_getoff_stab, _ = split_half_corr(dlt, "defensiveTeam", lambda x: x["rel"].mean(), 200)
 
     # ------------------------------------------------------------------ /api/guerra
     def _compute_guerra(self) -> dict[str, Any]:
@@ -466,16 +472,21 @@ class TrenchAnalytics:
         pa_p = strat_adjust(d, pa_t, pa_c, "had_pressure", strata)
         pa_k = strat_adjust(d, pa_t, pa_c, "is_sack", strata)
         dtt = d[d["ttt"].notna()]
-        pa_ttt = strat_adjust(dtt.assign(ttt_c=dtt["ttt"] / 100.0), dtt["is_play_action"] == 1,
-                              dtt["is_play_action"] == 0, "ttt_c", strata)
+        # Stratified TTT delta in seconds (keep 2 decimals instead of strat_adjust's 1-decimal percentage rounding).
+        ct_t = dtt[dtt["is_play_action"] == 0].groupby(strata)["ttt"].mean().rename("c_mean")
+        tt_t = dtt[dtt["is_play_action"] == 1].groupby(strata)["ttt"].agg(["mean", "size"]).join(ct_t, how="inner")
+        pa_ttt_delta = float(((tt_t["mean"] - tt_t["c_mean"]) * tt_t["size"]).sum() / tt_t["size"].sum()) if len(tt_t) else 0.0
         f10 = dtt[(dtt["down"] == 1) & (dtt["yardsToGo"] == 10)]
         dlp = dl[dl["down"] > 0].copy()
         dlp["sit"] = dlp["down"].astype(int).astype(str) + "_" + dlp["yardsToGo"].astype(int).astype(str)
         bpa, spa = fe_slope(dlp["getoff"].values, dlp["is_play_action"].values,
                             [dlp["nflId"].values, dlp["sit"].values], dlp["nflId"].values)
-        roll = pm[pm["is_rollout"] == 1]
-        pa_roll = pm[(pm["is_play_action"] == 1) & (pm["is_rollout"] == 1)]
-        pa_noroll = pm[(pm["is_play_action"] == 1) & (pm["is_rollout"] == 0)]
+        roll = d[d["is_rollout"] == 1]
+        pa_d = d[d["is_play_action"] == 1]
+        pa_roll = pa_d[pa_d["is_rollout"] == 1]
+        pa_noroll = pa_d[pa_d["is_rollout"] == 0]
+        pa_roll_sack_adj = strat_adjust(pa_d, pa_d["is_rollout"] == 1, pa_d["is_rollout"] == 0, "is_sack", strata)
+        pa_roll_big_adj = strat_adjust(pa_d, pa_d["is_rollout"] == 1, pa_d["is_rollout"] == 0, "big", strata)
         play_action = {
             "pa_rate": _pct(pm["is_play_action"].mean()),
             "pa_plays": int(pm["is_play_action"].sum()),
@@ -487,7 +498,7 @@ class TrenchAnalytics:
             "ttt_pa": _r(dtt[dtt["is_play_action"] == 1]["ttt"].median(), 1),
             "ttt_1st10_no_pa": _r(f10[f10["is_play_action"] == 0]["ttt"].median(), 1),
             "ttt_1st10_pa": _r(f10[f10["is_play_action"] == 1]["ttt"].median(), 1),
-            "ttt_delta_adj": _r(pa_ttt["delta"], 2),
+            "ttt_delta_adj": _r(pa_ttt_delta, 2),
             "success_pa": pa_s["actual"], "success_expected": pa_s["expected"], "success_se": pa_s["se"],
             "big_pa": pa_b["actual"], "big_expected": pa_b["expected"], "big_z": pa_b["z"],
             "pressure_pa": pa_p["actual"], "pressure_expected": pa_p["expected"], "pressure_z": pa_p["z"],
@@ -495,13 +506,19 @@ class TrenchAnalytics:
             "n_compared": pa_s["n"],
             "rollout_sack": _pct(roll["is_sack"].mean()),
             "rollout_n": int(len(roll)),
-            "pocket_sack": _pct(pm[pm["dropBackType"] == "TRADITIONAL"]["is_sack"].mean()),
+            "pocket_sack": _pct(d[d["dropBackType"] == "TRADITIONAL"]["is_sack"].mean()),
             "rollout_pa_share": int(round(roll["is_play_action"].mean() * 100)) if len(roll) else 0,
             "pa_rollout_sack": _pct(pa_roll["is_sack"].mean()),
             "pa_rollout_n": int(len(pa_roll)),
             "pa_rollout_sacks": int(pa_roll["is_sack"].sum()),
             "pa_no_rollout_sack": _pct(pa_noroll["is_sack"].mean()),
             "pa_no_rollout_n": int(len(pa_noroll)),
+            "pa_rollout_big": _pct(pa_roll["big"].mean()),
+            "pa_no_rollout_big": _pct(pa_noroll["big"].mean()),
+            "pa_rollout_sack_delta": pa_roll_sack_adj["delta"],
+            "pa_rollout_sack_z": pa_roll_sack_adj["z"],
+            "pa_rollout_big_delta": pa_roll_big_adj["delta"],
+            "pa_rollout_big_z": pa_roll_big_adj["z"],
         }
 
         # Blitz depends on the down
@@ -534,6 +551,9 @@ class TrenchAnalytics:
         diff = tl["delta"] - early["delta"]
         dse = float(np.hypot(early["se"], tl["se"]))
         third = d[d["third_long"] == 1]
+        third_ns = third[third["is_sack"] == 0]
+        tl_ns_conv = strat_adjust(third_ns, third_ns["is_blitz"] == 1, third_ns["is_blitz"] == 0, "conversion", strata)
+        tl_sack_adj = strat_adjust(third, third["is_blitz"] == 1, third["is_blitz"] == 0, "is_sack", strata)
         base = third[third["plan"] == "4 sin stunt"]
         vs_base = []
         for plan in ["4 con stunt", "Blitz sin stunt", "Blitz con stunt"]:
@@ -546,6 +566,16 @@ class TrenchAnalytics:
             "by_situation": by_sit,
             "third_long_sacks": {"rush4": _pct(third[third["is_blitz"] == 0]["is_sack"].mean()),
                                  "blitz": _pct(third[third["is_blitz"] == 1]["is_sack"].mean())},
+            "third_long_mechanism": {
+                "sack_delta": tl_sack_adj["delta"], "sack_z": tl_sack_adj["z"],
+                "non_sack_conv_blitz": tl_ns_conv["actual"], "non_sack_conv_expected": tl_ns_conv["expected"],
+                "non_sack_conv_delta": tl_ns_conv["delta"], "non_sack_conv_se": tl_ns_conv["se"],
+                "non_sack_conv_z": tl_ns_conv["z"],
+                "man_share_blitz": _pct((third[third["is_blitz"] == 1]["pff_passCoverageType"] == "Man").mean()),
+                "man_share_rush4": _pct((third[third["is_blitz"] == 0]["pff_passCoverageType"] == "Man").mean()),
+                "ttt_median_blitz": _r(third[third["is_blitz"] == 1]["ttt"].median(), 1),
+                "ttt_median_rush4": _r(third[third["is_blitz"] == 0]["ttt"].median(), 1),
+            },
             "flip": {"early": early["delta"], "third_long": tl["delta"], "diff": round(diff, 1),
                      "z": round(diff / dse, 1) if dse > 0 else 0.0},
             "third_long_plans": {
@@ -561,12 +591,15 @@ class TrenchAnalytics:
             sub = pm[pm["plan"] == plan]
             if plan == "4 sin stunt":
                 a = {"delta": 0.0, "se": 0.0, "z": 0.0}
+                ap = {"delta": 0.0, "se": 0.0, "z": 0.0}
             else:
                 a = strat_adjust(d, d["plan"] == plan, d["plan"] == "4 sin stunt", "success", strata)
+                ap = strat_adjust(d, d["plan"] == plan, d["plan"] == "4 sin stunt", "had_pressure", strata)
             rush_plans.append({
                 "plan": plan, "plays": int(len(sub)), "pressure": _pct(sub["had_pressure"].mean()),
                 "sack": _pct(sub["is_sack"].mean()), "success": _pct(sub["success"].mean()),
                 "adj_delta": a["delta"], "se": a["se"], "z": a["z"],
+                "adj_pressure_delta": ap["delta"], "adj_pressure_se": ap["se"], "adj_pressure_z": ap["z"],
             })
 
         # Protection weak links (lost rep = hit/hurry/sack allowed or beaten)
